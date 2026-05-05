@@ -1,0 +1,150 @@
+* { box-sizing: border-box; }
+
+body {
+    width: 300px;
+    margin: 0;
+    padding: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px;
+    color: #1f2328;
+    background: #ffffff;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+h1 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.dot.on  { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
+.dot.off { background: #94a3b8; }
+
+.status {
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+}
+
+.row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2px 0;
+}
+
+.row span:first-child {
+    color: #57606a;
+    font-size: 12px;
+}
+
+.row span:last-child {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+
+.actions {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+button {
+    flex: 1;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1f2328;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+    background: #f6f8fa;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#toggle {
+    background: #2563eb;
+    color: #ffffff;
+    border-color: #2563eb;
+}
+
+#toggle:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+details {
+    border-top: 1px solid #d0d7de;
+    padding-top: 10px;
+    font-size: 12px;
+}
+
+details summary {
+    cursor: pointer;
+    color: #57606a;
+    font-weight: 500;
+}
+
+.hint {
+    color: #57606a;
+    font-size: 11px;
+    margin: 6px 0;
+}
+
+textarea {
+    width: 100%;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px;
+    padding: 6px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    resize: vertical;
+}
+
+.ack {
+    color: #16a34a;
+    font-size: 11px;
+    margin-left: 6px;
+}
+
+.err {
+    color: #b91c1c;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    margin: 8px 0 0;
+}
+
+.hidden { display: none; }
+
+code {
+    background: #f1f5f9;
+    padding: 0 3px;
+    border-radius: 3px;
+    font-size: 11px;
+}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Debug Logs Catcher</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <header>
+        <span id="dot" class="dot off"></span>
+        <h1>Debug Logs Catcher</h1>
+    </header>
+
+    <section class="status">
+        <div class="row"><span>Status</span><span id="attachState">Idle</span></div>
+        <div class="row"><span>WS sent</span><span id="sentCount">0</span></div>
+        <div class="row"><span>WS received</span><span id="recvCount">0</span></div>
+        <div class="row"><span>Console</span><span id="consoleCount">0</span></div>
+        <div class="row"><span>Network</span><span id="networkCount">0</span></div>
+    </section>
+
+    <section class="actions">
+        <button id="toggle">Start</button>
+        <button id="clear">Clear</button>
+        <button id="export" disabled>Export</button>
+    </section>
+
+    <details>
+        <summary>Auto-capture domains</summary>
+        <p class="hint">One per line. Subdomains match (<code>example.com</code> matches <code>foo.example.com</code>).</p>
+        <textarea id="autoDomains" rows="3" placeholder="myistra.eaitel.com.br&#10;localhost"></textarea>
+        <button id="saveAutoDomains">Save</button>
+        <span id="saveAck" class="ack hidden">saved</span>
+    </details>
+
+    <p id="errBox" class="err hidden"></p>
+
+    <script src="popup.js"></script>
+</body>
+</html>
