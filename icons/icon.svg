@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Stretch the bug vertically (no horizontal change so legs don't overflow) -->
+  <g transform="translate(64 64) scale(0.97 1.20) translate(-64 -73)">
+
+    <!-- Legs (drawn first, behind the body). Femur horizontal, tibia bent
+         45° up for front, down for back. Middle legs straight horizontal. -->
+    <g stroke="#0f0f0f" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M 21 76 L 10 76 L 2 68"/>
+      <path d="M 20 86 L 2 86"/>
+      <path d="M 22 96 L 10 96 L 2 104"/>
+      <path d="M 107 76 L 118 76 L 126 68"/>
+      <path d="M 108 86 L 126 86"/>
+      <path d="M 106 96 L 118 96 L 126 104"/>
+    </g>
+
+    <!-- Headband, proportional arc -->
+    <path d="M 18 52 Q 64 8 110 52" stroke="#0f0f0f" stroke-width="13" fill="none" stroke-linecap="round"/>
+
+    <!-- Body -->
+    <ellipse cx="64" cy="82" rx="44" ry="36" fill="#1f6b2e" stroke="#0f0f0f" stroke-width="9"/>
+
+    <!-- Spots -->
+    <circle cx="48" cy="82" r="11" fill="#0f0f0f"/>
+    <circle cx="80" cy="82" r="11" fill="#0f0f0f"/>
+
+    <!-- Earpieces, attached to the body's upper sides -->
+    <ellipse cx="18"  cy="58" rx="14" ry="16" fill="#0f0f0f"/>
+    <ellipse cx="110" cy="58" rx="14" ry="16" fill="#0f0f0f"/>
+
+  </g>
+</svg>
