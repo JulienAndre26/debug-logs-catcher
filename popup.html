@@ -22,15 +22,31 @@
     <section class="actions">
         <button id="toggle">Start</button>
         <button id="clear">Clear</button>
-        <button id="export" disabled>Export</button>
+        <button id="export" title="Export gzipped (.json.gz). Shift+click for raw JSON - way heavier." disabled>Export</button>
     </section>
 
     <details>
-        <summary>Auto-capture domains</summary>
-        <p class="hint">One per line. Subdomains match (<code>example.com</code> matches <code>foo.example.com</code>).</p>
-        <textarea id="autoDomains" rows="3" placeholder="myistra.eaitel.com.br&#10;localhost"></textarea>
-        <button id="saveAutoDomains">Save</button>
-        <span id="saveAck" class="ack hidden">saved</span>
+        <summary>Settings</summary>
+
+        <h2 class="subhead">Auto-capture domains</h2>
+        <p class="hint">One domain per line. Subdomains match (<code>example.com</code> matches <code>foo.example.com</code>).</p>
+        <textarea id="autoDomains" rows="3" placeholder="myistra.some.domain.net&#10;myistra.other.domain.com"></textarea>
+        <div class="row-buttons">
+            <button id="saveAutoDomains">Save</button>
+            <button id="clearAutoDomains">Clear</button>
+            <span id="saveAck" class="ack hidden">saved</span>
+        </div>
+
+        <label class="toggle">
+            <input type="checkbox" id="clearOnReload">
+            <span>Clear buffer on page reload</span>
+        </label>
+        <label class="toggle">
+            <input type="checkbox" id="includeAllHeaders">
+            <span>Include all headers in export (auth, cookies, CSP&hellip;)</span>
+        </label>
+
+        <p class="tip">Tip: Shift+click <em>Export</em> for a raw <code>.json</code>.</p>
     </details>
 
     <p id="errBox" class="err hidden"></p>

@@ -107,6 +107,13 @@ details summary {
     font-weight: 500;
 }
 
+.subhead {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1f2328;
+    margin: 10px 0 4px;
+}
+
 .hint {
     color: #57606a;
     font-size: 11px;
@@ -128,6 +135,44 @@ textarea {
     color: #16a34a;
     font-size: 11px;
     margin-left: 6px;
+    align-self: center;
+}
+
+.row-buttons {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.row-buttons button {
+    flex: 0 0 auto;
+}
+
+.toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    font-size: 12px;
+    color: #1f2328;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+}
+
+.tip {
+    color: #57606a;
+    font-size: 11px;
+    margin: 8px 0 0;
+    font-style: italic;
+}
+
+.tip code, .tip em {
+    font-style: normal;
 }
 
 .err {

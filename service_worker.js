@@ -7,14 +7,20 @@ const MAX_NETWORK = 5000;
 
 const captures = new Map();
 let autoDomains = [];
+let clearOnReload = true;
 
-chrome.storage.local.get(['autoDomains'], (data) => {
+chrome.storage.local.get(['autoDomains', 'clearOnReload'], (data) => {
     autoDomains = Array.isArray(data.autoDomains) ? data.autoDomains : [];
+    clearOnReload = data.clearOnReload !== false;
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.autoDomains) {
+    if (area !== 'local') return;
+    if (changes.autoDomains) {
         autoDomains = Array.isArray(changes.autoDomains.newValue) ? changes.autoDomains.newValue : [];
+    }
+    if (changes.clearOnReload) {
+        clearOnReload = changes.clearOnReload.newValue !== false;
     }
 });
 
@@ -39,6 +45,34 @@ function matchesAutoDomain(url) {
     });
 }
 
+async function updateBadge() {
+    const activeTabIds = [];
+    for (const [tabId, cap] of captures.entries()) {
+        if (cap.attached) activeTabIds.push(tabId);
+    }
+    const count = activeTabIds.length;
+
+    let currentTabId;
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+        currentTabId = tab && tab.id;
+    } catch (e) {
+        currentTabId = undefined;
+    }
+
+    let text = '';
+    if (count > 9) {
+        text = '9+';
+    } else if (count > 1) {
+        text = String(count);
+    } else if (count === 1 && activeTabIds[0] !== currentTabId) {
+        text = '1';
+    }
+
+    chrome.action.setBadgeText({ text });
+    if (text) chrome.action.setBadgeBackgroundColor({ color: '#22c55e' });
+}
+
 async function attachToTab(tabId) {
     const cap = getCapture(tabId);
     if (cap.attached) return { ok: true, alreadyAttached: true };
@@ -48,9 +82,11 @@ async function attachToTab(tabId) {
         cap.startedAt = Date.now();
         await chrome.debugger.sendCommand({ tabId }, 'Network.enable');
         await chrome.debugger.sendCommand({ tabId }, 'Runtime.enable');
+        updateBadge();
         return { ok: true };
     } catch (e) {
         cap.attached = false;
+        updateBadge();
         return { ok: false, error: String(e && e.message || e) };
     }
 }
@@ -64,6 +100,7 @@ async function detachFromTab(tabId) {
         // best-effort; debugger may already be gone
     }
     cap.attached = false;
+    updateBadge();
     return { ok: true };
 }
 
@@ -234,6 +271,7 @@ chrome.debugger.onDetach.addListener((source, reason) => {
         cap.attached = false;
         cap.detachReason = reason;
     }
+    updateBadge();
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
@@ -242,13 +280,22 @@ chrome.tabs.onRemoved.addListener((tabId) => {
         chrome.debugger.detach({ tabId }).catch(() => {});
     }
     captures.delete(tabId);
+    updateBadge();
+});
+
+chrome.tabs.onActivated.addListener(() => updateBadge());
+chrome.windows.onFocusChanged.addListener((windowId) => {
+    if (windowId !== chrome.windows.WINDOW_ID_NONE) updateBadge();
 });
 
 chrome.webNavigation.onBeforeNavigate.addListener(async ({ tabId, url, frameId }) => {
     if (frameId !== 0) return;
+    const cap = captures.get(tabId);
+    if (cap && cap.attached && clearOnReload) {
+        clearCapture(tabId);
+    }
     if (!matchesAutoDomain(url)) return;
-    const cap = getCapture(tabId);
-    if (cap.attached) return;
+    if (cap && cap.attached) return;
     await attachToTab(tabId);
 });
 

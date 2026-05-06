@@ -1,5 +1,31 @@
 'use strict';
 
+const SENSITIVE_HEADERS = new Set([
+    'authorization',
+    'x-application',
+    'cookie',
+    'set-cookie',
+    'x-csrf-token',
+    'x-xsrf-token'
+]);
+
+const BOILERPLATE_HEADERS = new Set([
+    'content-security-policy',
+    'content-security-policy-report-only',
+    'strict-transport-security',
+    'x-frame-options',
+    'x-content-type-options',
+    'x-xss-protection',
+    'referrer-policy',
+    'permissions-policy',
+    'cross-origin-opener-policy',
+    'cross-origin-embedder-policy',
+    'cross-origin-resource-policy'
+]);
+
+const BEARER_RE = /Bearer:?\s*[A-Za-z0-9._\-+/=]+/g;
+const AUTH_FIELD_RE = /"(Authorization|X-Application|Cookie|Set-Cookie)"\s*:\s*"[^"]*"/gi;
+
 let currentTabId;
 let refreshTimer;
 
@@ -55,27 +81,109 @@ async function onClear() {
     refresh();
 }
 
-async function onExport() {
-    const result = await send({ type: 'export', tabId: currentTabId });
-    if (!result.ok) {
-        showError(result.error || 'export failed');
+function stripHeaders(headers) {
+    if (!headers) return headers;
+    const out = {};
+    for (const [k, v] of Object.entries(headers)) {
+        const kl = k.toLowerCase();
+        if (SENSITIVE_HEADERS.has(kl) || BOILERPLATE_HEADERS.has(kl)) continue;
+        out[k] = v;
+    }
+    return out;
+}
+
+function redactString(s) {
+    if (typeof s !== 'string') return s;
+    return s.replace(BEARER_RE, 'Bearer:<redacted>').replace(AUTH_FIELD_RE, '"$1":"<redacted>"');
+}
+
+function walkAndStripHeaders(node) {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+        for (const child of node) walkAndStripHeaders(child);
         return;
     }
-    const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+    for (const key of ['headers', 'responseHeaders']) {
+        if (node[key] && typeof node[key] === 'object' && !Array.isArray(node[key])) {
+            node[key] = stripHeaders(node[key]);
+        }
+    }
+    for (const key of Object.keys(node)) {
+        const val = node[key];
+        if (val && typeof val === 'object') walkAndStripHeaders(val);
+    }
+}
+
+function stripPayload(s) {
+    if (typeof s !== 'string') return s;
+    let parsed;
+    try { parsed = JSON.parse(s); } catch (e) { return redactString(s); }
+    walkAndStripHeaders(parsed);
+    return redactString(JSON.stringify(parsed));
+}
+
+function stripData(data) {
+    return {
+        meta: data.meta,
+        wsSent: (data.wsSent || []).map((f) => ({ ...f, payload: stripPayload(f.payload) })),
+        wsReceived: (data.wsReceived || []).map((f) => ({ ...f, payload: stripPayload(f.payload) })),
+        console: data.console,
+        network: (data.network || []).map((req) => ({
+            ...req,
+            url: redactString(req.url),
+            headers: stripHeaders(req.headers),
+            responseHeaders: stripHeaders(req.responseHeaders),
+            postData: redactString(req.postData)
+        }))
+    };
+}
+
+async function gzipBlob(text) {
+    const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+    return await new Response(stream).blob();
+}
+
+function triggerDownload(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    const ts = new Date().toISOString().replace(/[:.]/g, '-');
     a.href = url;
-    a.download = `capture-${ts}.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
 }
 
+async function onExport(event) {
+    showError('');
+    const result = await send({ type: 'export', tabId: currentTabId });
+    if (!result.ok) {
+        showError(result.error || 'export failed');
+        return;
+    }
+    const settings = await chrome.storage.local.get(['includeAllHeaders']);
+    const data = settings.includeAllHeaders ? result.data : stripData(result.data);
+    const json = JSON.stringify(data, null, 2);
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const wantRaw = event && event.shiftKey;
+
+    if (wantRaw) {
+        triggerDownload(new Blob([json], { type: 'application/json' }), `capture-${ts}.json`);
+    } else {
+        const blob = await gzipBlob(json);
+        triggerDownload(new Blob([blob], { type: 'application/gzip' }), `capture-${ts}.json.gz`);
+    }
+}
+
 async function loadAutoDomains() {
     const { domains } = await send({ type: 'getAutoDomains' });
     document.getElementById('autoDomains').value = (domains || []).join('\n');
+}
+
+function flashAck() {
+    const ack = document.getElementById('saveAck');
+    ack.classList.remove('hidden');
+    setTimeout(() => ack.classList.add('hidden'), 1500);
 }
 
 async function onSaveAutoDomains() {
@@ -84,9 +192,25 @@ async function onSaveAutoDomains() {
         .map((s) => s.trim())
         .filter(Boolean);
     await send({ type: 'setAutoDomains', domains: lines });
-    const ack = document.getElementById('saveAck');
-    ack.classList.remove('hidden');
-    setTimeout(() => ack.classList.add('hidden'), 1500);
+    flashAck();
+}
+
+async function onClearAutoDomains() {
+    document.getElementById('autoDomains').value = '';
+    await send({ type: 'setAutoDomains', domains: [] });
+    flashAck();
+}
+
+async function loadSettings() {
+    const settings = await chrome.storage.local.get(['clearOnReload', 'includeAllHeaders']);
+    document.getElementById('clearOnReload').checked = settings.clearOnReload !== false;
+    document.getElementById('includeAllHeaders').checked = settings.includeAllHeaders === true;
+}
+
+function bindSetting(id, key) {
+    document.getElementById(id).addEventListener('change', (e) => {
+        chrome.storage.local.set({ [key]: e.target.checked });
+    });
 }
 
 async function init() {
@@ -101,8 +225,12 @@ async function init() {
     document.getElementById('clear').addEventListener('click', onClear);
     document.getElementById('export').addEventListener('click', onExport);
     document.getElementById('saveAutoDomains').addEventListener('click', onSaveAutoDomains);
+    document.getElementById('clearAutoDomains').addEventListener('click', onClearAutoDomains);
+    bindSetting('clearOnReload', 'clearOnReload');
+    bindSetting('includeAllHeaders', 'includeAllHeaders');
 
     await loadAutoDomains();
+    await loadSettings();
     await refresh();
     refreshTimer = setInterval(refresh, 1000);
 }
