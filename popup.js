@@ -24,7 +24,39 @@ const BOILERPLATE_HEADERS = new Set([
 ]);
 
 const BEARER_RE = /Bearer:?\s*[A-Za-z0-9._\-+/=]+/g;
+const BEARER_TOKEN_RE = /Bearer:?\s*([A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+)/;
 const AUTH_FIELD_RE = /"(Authorization|X-Application|Cookie|Set-Cookie)"\s*:\s*"[^"]*"/gi;
+
+function decodeJwt(token) {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return undefined;
+        const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+        return JSON.parse(atob(padded));
+    } catch (e) {
+        return undefined;
+    }
+}
+
+function extractEnvironment(data) {
+    const sources = [];
+    for (const req of (data.network || []).slice(0, 30)) {
+        for (const v of Object.values(req.headers || {})) {
+            if (typeof v === 'string') sources.push(v);
+        }
+    }
+    for (const frame of (data.wsSent || []).slice(0, 30)) {
+        if (typeof frame.payload === 'string') sources.push(frame.payload);
+    }
+    for (const s of sources) {
+        const m = s.match(BEARER_TOKEN_RE);
+        if (!m) continue;
+        const decoded = decodeJwt(m[1]);
+        if (decoded) return decoded;
+    }
+    return undefined;
+}
 
 let currentTabId;
 let refreshTimer;
@@ -161,8 +193,12 @@ async function onExport(event) {
         showError(result.error || 'export failed');
         return;
     }
+    const environment = extractEnvironment(result.data);
     const settings = await chrome.storage.local.get(['includeAllHeaders']);
     const data = settings.includeAllHeaders ? result.data : stripData(result.data);
+    if (environment) {
+        data.meta = { ...data.meta, environment };
+    }
     const json = JSON.stringify(data, null, 2);
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const wantRaw = event && event.shiftKey;

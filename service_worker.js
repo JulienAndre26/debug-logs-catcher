@@ -5,6 +5,8 @@ const MAX_WS_FRAMES = 5000;
 const MAX_CONSOLE = 10000;
 const MAX_NETWORK = 5000;
 
+const BUILD_INFO_PATH = '/build.json';
+
 const captures = new Map();
 let autoDomains = [];
 let clearOnReload = true;
@@ -23,6 +25,36 @@ chrome.storage.onChanged.addListener((changes, area) => {
         clearOnReload = changes.clearOnReload.newValue !== false;
     }
 });
+
+const BUILD_INFO_NOT_FOUND = { status: 'not-found' };
+
+async function fetchBuildInfo(tabId, path) {
+    if (!path || !path.trim()) return BUILD_INFO_NOT_FOUND;
+    const expression = `
+        (async () => {
+            try {
+                const r = await fetch(${JSON.stringify(path)}, { credentials: 'include' });
+                if (!r.ok) return null;
+                const text = await r.text();
+                try { return JSON.parse(text); } catch { return text; }
+            } catch (e) {
+                return null;
+            }
+        })()
+    `;
+    try {
+        const result = await chrome.debugger.sendCommand(
+            { tabId },
+            'Runtime.evaluate',
+            { expression, awaitPromise: true, returnByValue: true }
+        );
+        const value = result && result.result && result.result.value;
+        if (value === null || value === undefined) return BUILD_INFO_NOT_FOUND;
+        return value;
+    } catch (e) {
+        return BUILD_INFO_NOT_FOUND;
+    }
+}
 
 function getCapture(tabId) {
     let cap = captures.get(tabId);
@@ -83,6 +115,9 @@ async function attachToTab(tabId) {
         await chrome.debugger.sendCommand({ tabId }, 'Network.enable');
         await chrome.debugger.sendCommand({ tabId }, 'Runtime.enable');
         updateBadge();
+        fetchBuildInfo(tabId, BUILD_INFO_PATH).then((info) => {
+            if (cap.attached) cap.buildInfo = info;
+        });
         return { ok: true };
     } catch (e) {
         cap.attached = false;
@@ -130,7 +165,12 @@ function exportCapture(tabId) {
     const cap = captures.get(tabId);
     if (!cap) return undefined;
     return {
-        meta: { tabId, exportedAt: Date.now(), startedAt: cap.startedAt },
+        meta: {
+            tabId,
+            exportedAt: Date.now(),
+            startedAt: cap.startedAt,
+            buildInfo: cap.buildInfo === undefined ? BUILD_INFO_NOT_FOUND : cap.buildInfo
+        },
         wsSent: cap.sent,
         wsReceived: cap.received,
         console: cap.console,
