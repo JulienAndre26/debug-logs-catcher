@@ -194,7 +194,7 @@ or use this data?*
 
 ## Privacy policy URL
 
-> [PRIVACY_POLICY_URL]
+> https://julienandre26.github.io/debug-logs-catcher/PRIVACY.html
 >
 > (Hosted as GitHub Pages from the public mirror of this repo.)
 
