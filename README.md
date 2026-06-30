@@ -1,93 +1,173 @@
-# debug-logs-catcher
+# Debug Logs Catcher
 
+A Chrome extension that attaches the DevTools debugger to a tab on demand and
+captures WebSocket frames, console output, network requests, and environment
+metadata. Everything stays local — exports are produced as gzipped JSON files
+you download yourself.
 
+Built primarily to make it easy to reproduce and file bugs against Enreach
+front-end stacks (myXpad / myIstra), but the extension is generic and works
+on any tab.
 
-## Getting started
+## Features
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/enreach/private/enreach-up/istra/web-extensions/debug-logs-catcher.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-* [Set up project integrations](https://gitlab.com/enreach/private/enreach-up/istra/web-extensions/debug-logs-catcher/-/settings/integrations)
-
-## Collaborate with your team
-
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+- **WebSocket capture** — every frame sent and received, with payload and
+  timestamp (capped at 5 000 frames per tab).
+- **Console capture** — `console.log` / `warn` / `error` / etc. plus uncaught
+  exceptions, with stack traces. Call arguments are captured as Chrome
+  DevTools Protocol's `ObjectPreview`: top-level property names with their
+  primitive values; nested objects/arrays appear as `"Object"` / `"Array(N)"`
+  placeholders, with no deeper recursion (like the DevTools console panel
+  before you click to expand an object). Capped at 10 000 entries.
+- **Network capture** — every HTTP request and response with URL, method,
+  headers, body, status, size, and timing (capped at 5 000 requests).
+- **Environment metadata** — automatically fetches `/build.json` from the
+  inspected origin if served, and decodes the first JWT bearer token seen
+  in network headers or WebSocket payloads to surface tenant / user / server
+  context.
+- **Auto-capture domains** — list the hosts you debug regularly; the
+  extension attaches automatically the next time you visit them. One-click
+  **Add current site** button in the popup, or type domains by hand.
+  Permissions are requested per domain through Chrome's native prompt.
+- **Header / token redaction by default** — `Authorization`, `Cookie`,
+  `Set-Cookie`, `X-Application`, `X-Csrf-Token`, `X-Xsrf-Token`, and `Bearer …`
+  tokens are stripped from exports. Toggle off in Settings if you control
+  the recipient.
+- **Gzipped export by default** — click *Export* for a compact `.json.gz`,
+  or `Shift+click` for raw `.json` when you want to read it directly in an
+  editor.
+- **Per-tab badge** — shows on tabs that have an active capture you are not
+  currently viewing, so you do not forget the debugger is attached.
+- **Clear-on-reload** — optional (on by default). Discards the buffer
+  when the page reloads, so each repro attempt starts clean.
 
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+
+### From the Chrome Web Store
+
+Search for *Debug Logs Catcher* in the Chrome Web Store, or use the direct
+listing URL (added here once the extension is published).
+
+### From source (unpacked)
+
+1. Clone the public mirror:
+   ```
+   git clone https://github.com/JulienAndre26/debug-logs-catcher.git
+   ```
+2. Open `chrome://extensions` in Chrome.
+3. Toggle **Developer mode** on (top right).
+4. Click **Load unpacked** and select the cloned folder.
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+1. Click the toolbar icon on the tab you want to debug.
+2. Click **Start** — the icon dot turns green and Chrome shows its native
+   *"Debug Logs Catcher started debugging this browser"* banner at the top
+   of the window (this is expected — it is how Chrome surfaces the
+   `chrome.debugger` permission).
+3. Reproduce the issue in the tab. The counters in the popup update in
+   real time.
+4. Click **Export** to download a `.json.gz` file with everything captured.
+   `Shift+click` for raw `.json` (much larger).
+5. Click **Stop** when you are done — the debugger banner disappears.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### Auto-capture domains
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+Open the *Settings* drawer in the popup. Two ways to add a host:
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+- Click **Add current site** to add the active tab's host in one go.
+- Type a host in the textarea (one per line) and click **Save**. Each
+  entry matches that exact hostname.
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Either way, Chrome shows its native permission prompt for that domain the
+first time you add it. Allow it once, and the extension will attach
+automatically the next time you load a matching page. Removing a domain
+from the list revokes the underlying Chrome host permission cleanly. The
+extension never holds permission for a host you have not explicitly
+authorized.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+### Export format
+
+Top-level structure:
+
+```jsonc
+{
+  "meta": {
+    "tabId": 123,
+    "exportedAt": 1719399012345,
+    "startedAt": 1719398999000,
+    "buildInfo": { "branch": "infinity", "build": "…", "version": "…" },
+    "environment": { "sub": "alice@example.com", "tenant": "…", "iss": "…" }
+  },
+  "wsSent":     [{ "t": …, "requestId": …, "opcode": …, "payload": "…" }, …],
+  "wsReceived": [{ … same shape … }],
+  "console":    [{ "t": …, "level": "log", "args": […], "stackTrace": … }, …],
+  "network":    [{ "t": …, "type": "http", "url": "…", "headers": …, "responseStatus": …, … }, …]
+}
+```
+
+`meta.buildInfo` is either the JSON returned by `GET /build.json` on the
+inspected origin, or `{ "status": "not-found" }` if the file is missing.
+`meta.environment` is the decoded payload of the first JWT bearer token
+seen in outgoing requests — the token itself is never stored.
+
+## Permissions
+
+The extension declares the following permissions:
+
+| Permission | Why |
+|---|---|
+| `debugger` | Only way to receive WebSocket payloads, runtime console events, and exception details. Activation is always explicit (Start button or user-authorized Auto-capture domain). |
+| `storage` | Persist Auto-capture domain list and the two boolean settings. No captured data is ever written to storage. |
+| `tabs` | Identify the active tab the popup acts on. |
+| `webNavigation` | Detect page reload (clear buffer) and detect navigation to an Auto-capture domain the user has authorized. |
+| `optional_host_permissions: <all_urls>` | **No host access at install time.** Requested per domain at runtime when the user adds it to the Auto-capture list, via Chrome's native permission prompt. Removing a domain revokes it. The manual *Start* button does not require any host permission — `debugger` is enough. |
+
+See [PRIVACY.md](PRIVACY.md) for the full privacy policy.
+
+## Limits
+
+- Buffers are bounded per tab: **5 000** WS frames, **10 000** console
+  entries, **5 000** network requests. Oldest entries are dropped first.
+- Captured data lives only in the service worker's memory and is gone
+  when the tab is closed (or sooner, see *Clear-on-reload*).
+- Only top-frame navigations are watched for Auto-capture matches.
+
+## Project structure
+
+```
+manifest.json         MV3 manifest
+service_worker.js     CDP listeners, capture buffers, attach/detach lifecycle
+popup.html            Popup UI
+popup.js              Popup logic, export pipeline, redaction
+popup.css             Popup styling
+icons/                16/32/48/128 PNG icons
+PRIVACY.md            Privacy policy (also published as the Store URL)
+STORE_LISTING.md      Source of truth for Chrome Web Store form copy
+CHANGELOG.md          Release notes
+LICENSE               License
+```
+
+## Development
+
+There is no build step — the repo content is the extension. Edit, reload
+on `chrome://extensions`, retry.
+
+Before publishing a new version:
+
+1. Bump `manifest.json` → `version`.
+2. Add a `CHANGELOG.md` entry.
+3. `git tag vX.Y.Z && git push --tags`.
+4. Produce the upload zip:
+   ```
+   zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' 'STORE_LISTING.md'
+   ```
+   (STORE_LISTING is internal-only; LICENSE / PRIVACY / CHANGELOG / README
+   are kept in the bundle.)
+5. Upload via the
+   [Chrome Web Store dashboard](https://chrome.google.com/webstore/devconsole/)
+   and paste the texts from `STORE_LISTING.md`.
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+See [LICENSE](LICENSE).
