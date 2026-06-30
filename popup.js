@@ -211,9 +211,31 @@ async function onExport(event) {
     }
 }
 
+let currentAutoDomains = [];
+
+function patternsFor(domain) {
+    const trimmed = domain.trim().replace(/^\*\./, '');
+    if (!trimmed) return [];
+    return [`*://${trimmed}/*`];
+}
+
+async function reconcileWithPermissions(domains) {
+    if (domains.length === 0) return domains;
+    const grantedOrigins = new Set((await chrome.permissions.getAll()).origins || []);
+    const filtered = domains.filter((d) => {
+        const patterns = patternsFor(d);
+        return patterns.some((p) => grantedOrigins.has(p));
+    });
+    if (filtered.length !== domains.length) {
+        await send({ type: 'setAutoDomains', domains: filtered });
+    }
+    return filtered;
+}
+
 async function loadAutoDomains() {
     const { domains } = await send({ type: 'getAutoDomains' });
-    document.getElementById('autoDomains').value = (domains || []).join('\n');
+    currentAutoDomains = await reconcileWithPermissions(domains || []);
+    document.getElementById('autoDomains').value = currentAutoDomains.join('\n');
 }
 
 function flashAck() {
@@ -222,18 +244,96 @@ function flashAck() {
     setTimeout(() => ack.classList.add('hidden'), 1500);
 }
 
+async function persistDomains(list) {
+    await send({ type: 'setAutoDomains', domains: list });
+    currentAutoDomains = list;
+    document.getElementById('autoDomains').value = list.join('\n');
+}
+
 async function onSaveAutoDomains() {
-    const lines = document.getElementById('autoDomains').value
+    showError('');
+    const inputLines = document.getElementById('autoDomains').value
         .split('\n')
         .map((s) => s.trim())
         .filter(Boolean);
-    await send({ type: 'setAutoDomains', domains: lines });
+
+    const added = inputLines.filter((d) => !currentAutoDomains.includes(d));
+    const removed = currentAutoDomains.filter((d) => !inputLines.includes(d));
+
+    if (removed.length > 0) {
+        const origins = removed.flatMap(patternsFor);
+        try { await chrome.permissions.remove({ origins }); } catch (e) { /* best-effort */ }
+    }
+
+    const kept = currentAutoDomains.filter((d) => !removed.includes(d));
+    const optimistic = [...kept, ...added];
+    await persistDomains(optimistic);
+
+    if (added.length === 0) {
+        flashAck();
+        return;
+    }
+
+    const origins = added.flatMap(patternsFor);
+    let granted = false;
+    try {
+        granted = await chrome.permissions.request({ origins });
+    } catch (e) {
+        showError(`Permission request failed: ${e.message || e}`);
+    }
+
+    if (!granted) {
+        await persistDomains(kept);
+        showError(`Not added (permission denied): ${added.join(', ')}`);
+        return;
+    }
     flashAck();
 }
 
 async function onClearAutoDomains() {
-    document.getElementById('autoDomains').value = '';
-    await send({ type: 'setAutoDomains', domains: [] });
+    showError('');
+    if (currentAutoDomains.length > 0) {
+        const origins = currentAutoDomains.flatMap(patternsFor);
+        try { await chrome.permissions.remove({ origins }); } catch (e) { /* best-effort */ }
+    }
+    await persistDomains([]);
+    flashAck();
+}
+
+async function onAddCurrentSite() {
+    showError('');
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.url) {
+        showError('No active tab to read.');
+        return;
+    }
+    let host;
+    try { host = new URL(tab.url).hostname; } catch (e) { host = ''; }
+    if (!host) {
+        showError(`Current tab has no host (${tab.url}).`);
+        return;
+    }
+    if (currentAutoDomains.includes(host)) {
+        showError(`${host} is already in the list.`);
+        return;
+    }
+
+    const optimistic = [...currentAutoDomains, host];
+    await persistDomains(optimistic);
+
+    const origins = patternsFor(host);
+    let granted = false;
+    try {
+        granted = await chrome.permissions.request({ origins });
+    } catch (e) {
+        showError(`Permission request failed: ${e.message || e}`);
+    }
+
+    if (!granted) {
+        await persistDomains(currentAutoDomains.filter((d) => d !== host));
+        showError(`Not added (permission denied): ${host}`);
+        return;
+    }
     flashAck();
 }
 
@@ -262,6 +362,7 @@ async function init() {
     document.getElementById('export').addEventListener('click', onExport);
     document.getElementById('saveAutoDomains').addEventListener('click', onSaveAutoDomains);
     document.getElementById('clearAutoDomains').addEventListener('click', onClearAutoDomains);
+    document.getElementById('addCurrentSite').addEventListener('click', onAddCurrentSite);
     bindSetting('clearOnReload', 'clearOnReload');
     bindSetting('includeAllHeaders', 'includeAllHeaders');
 

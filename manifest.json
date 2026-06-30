@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Your favorite developer's Debug Logs Catcher",
+  "name": "Debug Logs Catcher",
   "version": "1.0.0",
-  "description": "Capture WebSocket frames, console logs, network requests and environment info (branch, build, version, server, tenant, user) for any tab via chrome.debugger. Export as JSON.",
+  "description": "Internal Enreach tool to capture WebSocket frames, console logs, network requests and environment metadata from any tab. Export as gzipped JSON.",
   "permissions": ["debugger", "storage", "tabs", "webNavigation"],
-  "host_permissions": ["<all_urls>"],
+  "optional_host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "service_worker.js"
   },

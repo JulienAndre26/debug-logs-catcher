@@ -85,14 +85,24 @@ button:disabled {
     cursor: not-allowed;
 }
 
-#toggle {
+#toggle,
+#addCurrentSite,
+#saveAutoDomains {
     background: #2563eb;
     color: #ffffff;
     border-color: #2563eb;
 }
 
-#toggle:hover:not(:disabled) {
+#toggle:hover:not(:disabled),
+#addCurrentSite:hover:not(:disabled),
+#saveAutoDomains:hover:not(:disabled) {
     background: #1d4ed8;
+}
+
+#addCurrentSite {
+    display: block;
+    width: 100%;
+    margin-bottom: 6px;
 }
 
 details {

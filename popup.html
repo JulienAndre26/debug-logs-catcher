@@ -29,7 +29,8 @@
         <summary>Settings</summary>
 
         <h2 class="subhead">Auto-capture domains</h2>
-        <p class="hint">One domain per line. Subdomains match (<code>example.com</code> matches <code>foo.example.com</code>).</p>
+        <p class="hint">One host per line. Each entry matches that exact hostname. Chrome will ask permission for each new host on Save.</p>
+        <button id="addCurrentSite">Add current site</button>
         <textarea id="autoDomains" rows="3" placeholder="myistra.some.domain.net&#10;myistra.other.domain.com"></textarea>
         <div class="row-buttons">
             <button id="saveAutoDomains">Save</button>

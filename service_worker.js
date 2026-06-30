@@ -70,10 +70,9 @@ function matchesAutoDomain(url) {
     let host;
     try { host = new URL(url).hostname; } catch (e) { return false; }
     return autoDomains.some((pattern) => {
-        const p = pattern.trim();
+        const p = pattern.trim().replace(/^\*\./, '');
         if (!p) return false;
-        if (p.startsWith('*.')) return host === p.slice(2) || host.endsWith('.' + p.slice(2));
-        return host === p || host.endsWith('.' + p);
+        return host === p;
     });
 }
 
