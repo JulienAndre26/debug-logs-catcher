@@ -8,13 +8,12 @@ as gzipped JSON files you download yourself.
 Built primarily to make it easy to reproduce and file bugs against Enreach
 front-end stacks, but the extension is generic and works on any tab.
 
-## Documentation
+## Privacy
 
-- [Privacy Policy](PRIVACY.md)
-- [README](https://github.com/JulienAndre26/debug-logs-catcher/blob/main/README.md) &mdash; features, usage, export format
-- [Changelog](https://github.com/JulienAndre26/debug-logs-catcher/blob/main/CHANGELOG.md)
-- [License](https://github.com/JulienAndre26/debug-logs-catcher/blob/main/LICENSE)
+See the [Privacy Policy](PRIVACY.md) for what the extension captures and
+where the data stays.
 
 ## Source
 
 [github.com/JulienAndre26/debug-logs-catcher](https://github.com/JulienAndre26/debug-logs-catcher)
+&mdash; README, changelog, license, and full source code.
