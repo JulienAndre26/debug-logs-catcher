@@ -10,10 +10,10 @@ front-end stacks, but the extension is generic and works on any tab.
 
 ## Documentation
 
-- [README](README.md) &mdash; features, usage, export format
 - [Privacy Policy](PRIVACY.md)
-- [Changelog](CHANGELOG.md)
-- [License](LICENSE)
+- [README](https://github.com/JulienAndre26/debug-logs-catcher/blob/main/README.md) &mdash; features, usage, export format
+- [Changelog](https://github.com/JulienAndre26/debug-logs-catcher/blob/main/CHANGELOG.md)
+- [License](https://github.com/JulienAndre26/debug-logs-catcher/blob/main/LICENSE)
 
 ## Source
 

@@ -214,9 +214,12 @@ or use this data?*
 ## Submission checklist
 
 - [ ] Bump `manifest.json` version if anything changed since last upload.
-- [ ] `zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' 'STORE_LISTING.md'`
-      (STORE_LISTING is internal — do not ship it; LICENSE, PRIVACY,
-      CHANGELOG, and README are fine to include.)
+- [ ] `zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' 'STORE_LISTING.md' 'docs/*'`
+      (STORE_LISTING and `docs/` Pages source are internal — do not ship
+      them; LICENSE, CHANGELOG, and README are fine to include. The privacy
+      policy lives under `docs/` and is shipped via the Pages URL, not
+      inside the ZIP — Chrome rejects any file starting with `_` so
+      `_config.yml` must stay out.)
 - [ ] Upload ZIP in the developer dashboard.
 - [ ] Paste every field above from this file.
 - [ ] Fill the data usage disclosures.

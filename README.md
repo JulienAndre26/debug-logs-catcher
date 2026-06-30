@@ -123,7 +123,8 @@ The extension declares the following permissions:
 | `webNavigation` | Detect page reload (clear buffer) and detect navigation to an Auto-capture domain the user has authorized. |
 | `optional_host_permissions: <all_urls>` | **No host access at install time.** Requested per domain at runtime when the user adds it to the Auto-capture list, via Chrome's native permission prompt. Removing a domain revokes it. The manual *Start* button does not require any host permission — `debugger` is enough. |
 
-See [PRIVACY.md](PRIVACY.md) for the full privacy policy.
+See [docs/PRIVACY.md](docs/PRIVACY.md) for the full privacy policy
+(also published at <https://julienandre26.github.io/debug-logs-catcher/PRIVACY.html>).
 
 ## Limits
 
@@ -142,7 +143,7 @@ popup.html            Popup UI
 popup.js              Popup logic, export pipeline, redaction
 popup.css             Popup styling
 icons/                16/32/48/128 PNG icons
-PRIVACY.md            Privacy policy (also published as the Store URL)
+docs/                 GitHub Pages source (landing + privacy policy)
 STORE_LISTING.md      Source of truth for Chrome Web Store form copy
 CHANGELOG.md          Release notes
 LICENSE               License
@@ -160,10 +161,12 @@ Before publishing a new version:
 3. `git tag vX.Y.Z && git push --tags`.
 4. Produce the upload zip:
    ```
-   zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' 'STORE_LISTING.md'
+   zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' 'STORE_LISTING.md' 'docs/*'
    ```
-   (STORE_LISTING is internal-only; LICENSE / PRIVACY / CHANGELOG / README
-   are kept in the bundle.)
+   (STORE_LISTING and the `docs/` Pages source are internal-only; LICENSE,
+   CHANGELOG, and README are kept in the bundle. The privacy policy lives
+   under `docs/` and is shipped via the Pages URL, not inside the ZIP &mdash;
+   Chrome rejects any file starting with `_` so `_config.yml` must stay out.)
 5. Upload via the
    [Chrome Web Store dashboard](https://chrome.google.com/webstore/devconsole/)
    and paste the texts from `STORE_LISTING.md`.
