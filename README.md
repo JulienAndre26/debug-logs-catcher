@@ -161,12 +161,13 @@ Before publishing a new version:
 3. `git tag vX.Y.Z && git push --tags`.
 4. Produce the upload zip:
    ```
-   zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' 'STORE_LISTING.md' 'docs/*'
+   zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' 'STORE_LISTING.md' 'docs/*' 'screenshots/*'
    ```
-   (STORE_LISTING and the `docs/` Pages source are internal-only; LICENSE,
-   CHANGELOG, and README are kept in the bundle. The privacy policy lives
-   under `docs/` and is shipped via the Pages URL, not inside the ZIP &mdash;
-   Chrome rejects any file starting with `_` so `_config.yml` must stay out.)
+   (STORE_LISTING, the `docs/` Pages source, and `screenshots/` are
+   internal-only; LICENSE, CHANGELOG, and README are kept in the bundle.
+   The privacy policy lives under `docs/` and is shipped via the Pages URL,
+   not inside the ZIP &mdash; Chrome rejects any file starting with `_` so
+   `_config.yml` must stay out.)
 5. Upload via the
    [Chrome Web Store dashboard](https://chrome.google.com/webstore/devconsole/)
    and paste the texts from `STORE_LISTING.md`.
