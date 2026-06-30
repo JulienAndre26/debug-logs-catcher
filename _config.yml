@@ -1,0 +1,12 @@
+theme: jekyll-theme-cayman
+title: Debug Logs Catcher
+description: Chrome extension to capture WebSocket frames, console logs, network requests and environment metadata from a tab.
+
+exclude:
+  - STORE_LISTING.md
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
