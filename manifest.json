@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Debug Logs Catcher",
   "version": "1.0.0",
-  "description": "Internal Enreach tool to capture WebSocket frames, console logs, network requests and environment metadata from any tab. Export as gzipped JSON.",
+  "description": "Internal Enreach tool: capture WebSocket, console, network, and environment metadata from a tab. Export gzipped JSON.",
   "permissions": ["debugger", "storage", "tabs", "webNavigation"],
   "optional_host_permissions": ["<all_urls>"],
   "background": {
