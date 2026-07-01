@@ -161,7 +161,7 @@ Before publishing a new version:
 3. `git tag vX.Y.Z && git push --tags`.
 4. Produce the upload zip:
    ```
-   zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' 'STORE_LISTING.md' 'docs/*' 'screenshots/*'
+   zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' '.gitignore' 'STORE_LISTING.md' 'docs/*' 'screenshots/*'
    ```
    (STORE_LISTING, the `docs/` Pages source, and `screenshots/` are
    internal-only; LICENSE, CHANGELOG, and README are kept in the bundle.
