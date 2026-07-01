@@ -214,7 +214,7 @@ or use this data?*
 ## Submission checklist
 
 - [ ] Bump `manifest.json` version if anything changed since last upload.
-- [ ] `zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' '.gitignore' 'STORE_LISTING.md' 'docs/*' 'screenshots/*'`
+- [ ] `zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' '.gitignore' 'STORE_LISTING.md' 'docs/*' 'screenshots/*' 'icons/*.svg'`
       (STORE_LISTING, `docs/` Pages source, and `screenshots/` are
       internal — do not ship them; LICENSE, CHANGELOG, and README are fine
       to include. The privacy policy lives under `docs/` and is shipped
