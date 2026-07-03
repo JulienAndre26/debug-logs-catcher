@@ -27,6 +27,19 @@ so the next submission has the latest text ready to copy.
 > debugger to a tab on demand and records everything you need to reproduce,
 > share, or diagnose an issue — without leaving the browser.
 >
+> How to use:
+>
+> 1. Open the site you want to debug (any http/https tab).
+> 2. Click the extension icon in the toolbar to open the popup.
+> 3. Click Start — Chrome shows its native "started debugging this browser" banner.
+> 4. Reproduce the issue in the tab. The counters update in real time.
+> 5. Click Stop when you are done.
+> 6. Click Export to download a gzipped JSON file with the capture.
+>
+> The extension only runs on http/https pages. Chrome blocks debugging on its
+> own pages (chrome://, chromewebstore.google.com, other extensions) — the
+> popup shows a friendly notice on those tabs.
+>
 > What it captures while attached:
 >
 > • WebSocket frames sent and received, with payload and timing

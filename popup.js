@@ -58,6 +58,26 @@ function extractEnvironment(data) {
     return undefined;
 }
 
+const DEBUGGABLE_SCHEMES = new Set(['http:', 'https:']);
+
+function isDebuggablePageUrl(url) {
+    if (!url) return false;
+    let u;
+    try { u = new URL(url); } catch (e) { return false; }
+    if (!DEBUGGABLE_SCHEMES.has(u.protocol)) return false;
+    if (u.hostname === 'chromewebstore.google.com') return false;
+    if (u.hostname === 'chrome.google.com' && u.pathname.startsWith('/webstore')) return false;
+    return true;
+}
+
+function describeUnsupported(url) {
+    if (!url) return 'this page';
+    let u;
+    try { u = new URL(url); } catch (e) { return url; }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return u.protocol + '//';
+    return u.hostname;
+}
+
 let currentTabId;
 let refreshTimer;
 
@@ -356,6 +376,13 @@ async function init() {
         return;
     }
     currentTabId = tab.id;
+
+    if (!isDebuggablePageUrl(tab.url)) {
+        document.getElementById('protectedTarget').textContent = describeUnsupported(tab.url);
+        document.getElementById('protectedNotice').classList.remove('hidden');
+        document.getElementById('mainUi').classList.add('hidden');
+        return;
+    }
 
     document.getElementById('toggle').addEventListener('click', onToggle);
     document.getElementById('clear').addEventListener('click', onClear);

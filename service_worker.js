@@ -65,6 +65,18 @@ function getCapture(tabId) {
     return cap;
 }
 
+const DEBUGGABLE_SCHEMES = new Set(['http:', 'https:']);
+
+function isDebuggablePageUrl(url) {
+    if (!url) return false;
+    let u;
+    try { u = new URL(url); } catch (e) { return false; }
+    if (!DEBUGGABLE_SCHEMES.has(u.protocol)) return false;
+    if (u.hostname === 'chromewebstore.google.com') return false;
+    if (u.hostname === 'chrome.google.com' && u.pathname.startsWith('/webstore')) return false;
+    return true;
+}
+
 function matchesAutoDomain(url) {
     if (!url || autoDomains.length === 0) return false;
     let host;
@@ -334,6 +346,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(async ({ tabId, url, frameId }
         clearCapture(tabId);
     }
     if (!matchesAutoDomain(url)) return;
+    if (!isDebuggablePageUrl(url)) return;
     if (cap && cap.attached) return;
     await attachToTab(tabId);
 });

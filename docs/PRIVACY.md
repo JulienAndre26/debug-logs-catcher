@@ -1,6 +1,6 @@
 # Privacy Policy — Debug Logs Catcher
 
-**Last updated:** 2026-06-29
+**Last updated:** 2026-07-02
 **Publisher:** Julien Andre
 **Contact:** julien.andre.devchrome@gmail.com
 
@@ -58,7 +58,9 @@ Nothing else is stored.
   no global variables, and no persistent listeners behind.
 - It does **not** read any page outside of the tabs you explicitly start
   capturing on (via the Start button, or via an Auto-capture domain you have
-  added to the list and granted Chrome permission for).
+  added to the list and granted Chrome permission for). It only attaches to
+  `http://` and `https://` tabs; Chrome protects its own pages (`chrome://`,
+  `chrome-extension://`, the Chrome Web Store) from debugging.
 - It does **not** persist captured frames, console output, network requests,
   or environment metadata across browser sessions — they live only in memory
   while the service worker is alive, and are discarded when the tab is

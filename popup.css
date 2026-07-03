@@ -1,3 +1,32 @@
+:root {
+    --color-text: #1f2328;
+    --color-text-muted: #57606a;
+    --color-text-subtle: #94a3b8;
+    --color-border: #d0d7de;
+    --color-bg: #ffffff;
+    --color-bg-subtle: #f6f8fa;
+    --color-code-bg: #f1f5f9;
+
+    --color-primary: #2563eb;
+    --color-primary-hover: #1d4ed8;
+
+    --color-success: #22c55e;
+    --color-success-halo: color-mix(in srgb, var(--color-success) 20%, transparent);
+    --color-success-text: #16a34a;
+
+    --color-danger-text: #b91c1c;
+    --color-danger-bg: #fef2f2;
+    --color-danger-border: #fecaca;
+
+    --color-warning-text: #713f12;
+    --color-warning-bg: #fef9c3;
+    --color-warning-border: #fde68a;
+    --color-warning-code-bg: #fef3c7;
+
+    --radius: 6px;
+    --radius-small: 3px;
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -6,8 +35,8 @@ body {
     padding: 12px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 13px;
-    color: #1f2328;
-    background: #ffffff;
+    color: var(--color-text);
+    background: var(--color-bg);
 }
 
 header {
@@ -28,15 +57,21 @@ h1 {
     height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
+
+    &.on {
+        background: var(--color-success);
+        box-shadow: 0 0 0 3px var(--color-success-halo);
+    }
+
+    &.off {
+        background: var(--color-text-subtle);
+    }
 }
 
-.dot.on  { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
-.dot.off { background: #94a3b8; }
-
 .status {
-    background: #f6f8fa;
-    border: 1px solid #d0d7de;
-    border-radius: 6px;
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
     padding: 8px 10px;
     margin-bottom: 10px;
 }
@@ -46,57 +81,58 @@ h1 {
     justify-content: space-between;
     align-items: center;
     padding: 2px 0;
-}
 
-.row span:first-child {
-    color: #57606a;
-    font-size: 12px;
-}
+    & > span:first-child {
+        color: var(--color-text-muted);
+        font-size: 12px;
+    }
 
-.row span:last-child {
-    font-variant-numeric: tabular-nums;
-    font-weight: 500;
+    & > span:last-child {
+        font-variant-numeric: tabular-nums;
+        font-weight: 500;
+    }
 }
 
 .actions {
     display: flex;
     gap: 6px;
     margin-bottom: 10px;
+
+    & > button {
+        flex: 1;
+    }
 }
 
 button {
-    flex: 1;
     padding: 6px 10px;
     font-size: 12px;
     font-weight: 500;
-    border: 1px solid #d0d7de;
-    border-radius: 6px;
-    background: #ffffff;
-    color: #1f2328;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-bg);
+    color: var(--color-text);
     cursor: pointer;
-}
 
-button:hover:not(:disabled) {
-    background: #f6f8fa;
-}
+    &:hover:not(:disabled) {
+        background: var(--color-bg-subtle);
+    }
 
-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 }
 
 #toggle,
 #addCurrentSite,
 #saveAutoDomains {
-    background: #2563eb;
-    color: #ffffff;
-    border-color: #2563eb;
-}
+    background: var(--color-primary);
+    color: var(--color-bg);
+    border-color: var(--color-primary);
 
-#toggle:hover:not(:disabled),
-#addCurrentSite:hover:not(:disabled),
-#saveAutoDomains:hover:not(:disabled) {
-    background: #1d4ed8;
+    &:hover:not(:disabled) {
+        background: var(--color-primary-hover);
+    }
 }
 
 #addCurrentSite {
@@ -106,26 +142,26 @@ button:disabled {
 }
 
 details {
-    border-top: 1px solid #d0d7de;
+    border-top: 1px solid var(--color-border);
     padding-top: 10px;
     font-size: 12px;
-}
 
-details summary {
-    cursor: pointer;
-    color: #57606a;
-    font-weight: 500;
+    & > summary {
+        cursor: pointer;
+        color: var(--color-text-muted);
+        font-weight: 500;
+    }
 }
 
 .subhead {
     font-size: 12px;
     font-weight: 600;
-    color: #1f2328;
+    color: var(--color-text);
     margin: 10px 0 4px;
 }
 
 .hint {
-    color: #57606a;
+    color: var(--color-text-muted);
     font-size: 11px;
     margin: 6px 0;
 }
@@ -135,14 +171,14 @@ textarea {
     font-family: ui-monospace, 'SF Mono', Menlo, monospace;
     font-size: 11px;
     padding: 6px;
-    border: 1px solid #d0d7de;
-    border-radius: 6px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
     margin-bottom: 6px;
     resize: vertical;
 }
 
 .ack {
-    color: #16a34a;
+    color: var(--color-success-text);
     font-size: 11px;
     margin-left: 6px;
     align-self: center;
@@ -154,42 +190,39 @@ textarea {
     margin-bottom: 10px;
 }
 
-.row-buttons button {
-    flex: 0 0 auto;
-}
-
 .toggle {
     display: flex;
     align-items: center;
     gap: 6px;
     padding: 4px 0;
     font-size: 12px;
-    color: #1f2328;
+    color: var(--color-text);
     cursor: pointer;
     user-select: none;
-}
 
-.toggle input[type="checkbox"] {
-    margin: 0;
-    cursor: pointer;
+    & > input[type="checkbox"] {
+        margin: 0;
+        cursor: pointer;
+    }
 }
 
 .tip {
-    color: #57606a;
+    color: var(--color-text-muted);
     font-size: 11px;
     margin: 8px 0 0;
     font-style: italic;
-}
 
-.tip code, .tip em {
-    font-style: normal;
+    & > code,
+    & > em {
+        font-style: normal;
+    }
 }
 
 .err {
-    color: #b91c1c;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    border-radius: 6px;
+    color: var(--color-danger-text);
+    background: var(--color-danger-bg);
+    border: 1px solid var(--color-danger-border);
+    border-radius: var(--radius);
     padding: 6px 8px;
     font-size: 12px;
     margin: 8px 0 0;
@@ -198,10 +231,38 @@ textarea {
 .hidden { display: none; }
 
 code {
-    background: #f1f5f9;
+    background: var(--color-code-bg);
     padding: 0 3px;
-    border-radius: 3px;
+    border-radius: var(--radius-small);
     font-size: 11px;
+}
+
+.notice {
+    background: var(--color-warning-bg);
+    border: 1px solid var(--color-warning-border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    margin-bottom: 4px;
+
+    & > .notice-title {
+        margin: 0 0 4px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--color-warning-text);
+    }
+
+    & > .notice-body {
+        margin: 0;
+        font-size: 11px;
+        line-height: 1.4;
+        color: var(--color-warning-text);
+
+        & > code {
+            background: var(--color-warning-code-bg);
+            color: var(--color-warning-text);
+            word-break: break-all;
+        }
+    }
 }
 
 .credit {
@@ -209,5 +270,5 @@ code {
     text-align: center;
     font-size: 10px;
     font-style: italic;
-    color: #94a3b8;
+    color: var(--color-text-subtle);
 }

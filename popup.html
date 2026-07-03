@@ -11,48 +11,58 @@
         <h1>Debug Logs Catcher</h1>
     </header>
 
-    <section class="status">
-        <div class="row"><span>Status</span><span id="attachState">Idle</span></div>
-        <div class="row"><span>WS sent</span><span id="sentCount">0</span></div>
-        <div class="row"><span>WS received</span><span id="recvCount">0</span></div>
-        <div class="row"><span>Console</span><span id="consoleCount">0</span></div>
-        <div class="row"><span>Network</span><span id="networkCount">0</span></div>
+    <section id="protectedNotice" class="notice hidden">
+        <p class="notice-title">Cannot debug this page</p>
+        <p class="notice-body">
+            Chrome blocks debugging on <code id="protectedTarget"></code>.
+            Switch to a normal http/https tab and reopen this popup.
+        </p>
     </section>
 
-    <section class="actions">
-        <button id="toggle">Start</button>
-        <button id="clear">Clear</button>
-        <button id="export" title="Export gzipped (.json.gz). Shift+click for raw JSON - way heavier." disabled>Export</button>
-    </section>
+    <div id="mainUi">
+        <section class="status">
+            <div class="row"><span>Status</span><span id="attachState">Idle</span></div>
+            <div class="row"><span>WS sent</span><span id="sentCount">0</span></div>
+            <div class="row"><span>WS received</span><span id="recvCount">0</span></div>
+            <div class="row"><span>Console</span><span id="consoleCount">0</span></div>
+            <div class="row"><span>Network</span><span id="networkCount">0</span></div>
+        </section>
 
-    <details>
-        <summary>Settings</summary>
+        <section class="actions">
+            <button id="toggle">Start</button>
+            <button id="clear">Clear</button>
+            <button id="export" title="Export gzipped (.json.gz). Shift+click for raw JSON - way heavier." disabled>Export</button>
+        </section>
 
-        <h2 class="subhead">Auto-capture domains</h2>
-        <p class="hint">One host per line. Each entry matches that exact hostname. Chrome will ask permission for each new host on Save.</p>
-        <button id="addCurrentSite">Add current site</button>
-        <textarea id="autoDomains" rows="3" placeholder="myistra.some.domain.net&#10;myistra.other.domain.com"></textarea>
-        <div class="row-buttons">
-            <button id="saveAutoDomains">Save</button>
-            <button id="clearAutoDomains">Clear</button>
-            <span id="saveAck" class="ack hidden">saved</span>
-        </div>
+        <details>
+            <summary>Settings</summary>
 
-        <label class="toggle">
-            <input type="checkbox" id="clearOnReload">
-            <span>Clear buffer on page reload</span>
-        </label>
-        <label class="toggle">
-            <input type="checkbox" id="includeAllHeaders">
-            <span>Include all headers in export (auth, cookies, CSP&hellip;)</span>
-        </label>
+            <h2 class="subhead">Auto-capture domains</h2>
+            <p class="hint">One host per line. Each entry matches that exact hostname. Chrome will ask permission for each new host on Save.</p>
+            <button id="addCurrentSite">Add current site</button>
+            <textarea id="autoDomains" rows="3" placeholder="myistra.some.domain.net&#10;myistra.other.domain.com"></textarea>
+            <div class="row-buttons">
+                <button id="saveAutoDomains">Save</button>
+                <button id="clearAutoDomains">Clear</button>
+                <span id="saveAck" class="ack hidden">saved</span>
+            </div>
 
-        <p class="tip">Tip: Shift+click <em>Export</em> for a raw <code>.json</code>.</p>
-    </details>
+            <label class="toggle">
+                <input type="checkbox" id="clearOnReload">
+                <span>Clear buffer on page reload</span>
+            </label>
+            <label class="toggle">
+                <input type="checkbox" id="includeAllHeaders">
+                <span>Include all headers in export (auth, cookies, CSP&hellip;)</span>
+            </label>
 
-    <p id="errBox" class="err hidden"></p>
+            <p class="tip">Tip: Shift+click <em>Export</em> for a raw <code>.json</code>.</p>
+        </details>
 
-    <footer class="credit">made with love by your favorite developer</footer>
+        <p id="errBox" class="err hidden"></p>
+
+        <footer class="credit">made with love by your favorite developer</footer>
+    </div>
 
     <script src="popup.js"></script>
 </body>

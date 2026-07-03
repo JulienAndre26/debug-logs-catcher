@@ -4,6 +4,22 @@ All notable changes to this extension are documented here. Format roughly
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 follow [SemVer](https://semver.org/).
 
+## [1.0.1] — 2026-07-02
+
+### Added
+
+- Friendly notice replacing the popup UI when the active tab is a page
+  Chrome protects from debugging (`chrome://`, `chrome-extension://`, the
+  Chrome Web Store, and any non-`http`/`https` scheme). The notice names
+  the blocked host or scheme so the user understands why the extension
+  cannot attach there.
+
+### Fixed
+
+- Auto-capture no longer attempts to attach on protected URLs, avoiding
+  the `"The extensions gallery cannot be scripted"` error on
+  `chromewebstore.google.com` and equivalents.
+
 ## [1.0.0] — 2026-06-29
 
 Initial public release.

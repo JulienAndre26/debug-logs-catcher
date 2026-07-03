@@ -133,6 +133,9 @@ See [docs/PRIVACY.md](docs/PRIVACY.md) for the full privacy policy
 - Captured data lives only in the service worker's memory and is gone
   when the tab is closed (or sooner, see *Clear-on-reload*).
 - Only top-frame navigations are watched for Auto-capture matches.
+- The extension only runs on `http://` and `https://` tabs. Chrome blocks
+  debugging on its own pages (`chrome://`, `chrome-extension://`, the
+  Chrome Web Store); the popup shows a notice on those tabs.
 
 ## Project structure
 
