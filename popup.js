@@ -1,4 +1,4 @@
-'use strict';
+import { redactSensitiveInPlace } from './lib/capture.js';
 
 const SENSITIVE_HEADERS = new Set([
     'authorization',
@@ -171,7 +171,33 @@ function stripPayload(s) {
     let parsed;
     try { parsed = JSON.parse(s); } catch (e) { return redactString(s); }
     walkAndStripHeaders(parsed);
+    redactSensitiveInPlace(parsed);
     return redactString(JSON.stringify(parsed));
+}
+
+// Response bodies: a complete JSON body is returned as a parsed object (nicer to read / query); a
+// truncated, non-JSON, or base64 body stays a (redacted) string. Redaction is applied either way — we
+// redact the string first (via stripPayload) then parse the result back, so a truncated JSON that can't
+// re-parse simply falls back to the redacted string.
+function stripBody(s, isBase64) {
+    if (isBase64 || typeof s !== 'string') return s;
+    const redacted = stripPayload(s);
+    try { return JSON.parse(redacted); } catch (e) { return redacted; }
+}
+
+function redactConsoleArg(arg) {
+    if (typeof arg === 'string') return redactString(arg);
+    if (arg && typeof arg === 'object') {
+        // Deep-serialized console objects can carry tokens/headers; round-trip through stripPayload
+        // (JSON walk-and-strip headers + bearer/auth redaction) like any other payload.
+        try { return JSON.parse(stripPayload(JSON.stringify(arg))); } catch (e) { return arg; }
+    }
+    return arg;
+}
+
+function redactConsoleEntry(entry) {
+    if (!entry || !Array.isArray(entry.args)) return entry;
+    return { ...entry, args: entry.args.map(redactConsoleArg) };
 }
 
 function stripData(data) {
@@ -179,13 +205,14 @@ function stripData(data) {
         meta: data.meta,
         wsSent: (data.wsSent || []).map((f) => ({ ...f, payload: stripPayload(f.payload) })),
         wsReceived: (data.wsReceived || []).map((f) => ({ ...f, payload: stripPayload(f.payload) })),
-        console: data.console,
+        console: (data.console || []).map(redactConsoleEntry),
         network: (data.network || []).map((req) => ({
             ...req,
             url: redactString(req.url),
             headers: stripHeaders(req.headers),
             responseHeaders: stripHeaders(req.responseHeaders),
-            postData: redactString(req.postData)
+            postData: stripPayload(req.postData),
+            responseBody: stripBody(req.responseBody, req.responseBodyBase64)
         }))
     };
 }

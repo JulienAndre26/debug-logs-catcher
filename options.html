@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Debug Logs Catcher — Options</title>
+    <link rel="stylesheet" href="popup.css">
+    <style>
+        body { width: auto; max-width: 520px; margin: 0 auto; padding: 24px; }
+        .field { margin: 16px 0; }
+        .field > label { display: block; font-weight: 600; margin-bottom: 4px; }
+        .field > input[type="range"] {
+            width: 260px;
+            max-width: 100%;
+            vertical-align: middle;
+        }
+        .field > label > output {
+            font-variant-numeric: tabular-nums;
+            font-weight: 700;
+            color: var(--color-primary);
+        }
+        .field > .hint { margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <header>
+        <span class="dot on"></span>
+        <h1>Debug Logs Catcher — Options</h1>
+    </header>
+
+    <p class="hint">Expert capture settings. Changes apply to the next captured events — no restart needed.</p>
+
+    <div class="field">
+        <label for="consoleDepth">Console object serialization depth: <output id="consoleDepthVal"></output></label>
+        <input type="range" id="consoleDepth" min="0" max="8" step="1">
+        <p class="hint">
+            How deep console objects are expanded (range <code>0</code>–<code>8</code>). <code>0</code> =
+            shallow preview only. <code>1</code> (default) = one level plus a free preview of nested objects —
+            one CDP call per logged object. Higher values fully expand nested objects but issue many more CDP
+            calls and can lag on chatty pages (arrays of objects fan out).
+        </p>
+    </div>
+
+    <div class="field">
+        <label for="maxBodyKB">Max captured body size: <output id="maxBodyKBVal"></output> ko</label>
+        <input type="range" id="maxBodyKB" min="1" max="1000" step="1">
+        <p class="hint">
+            Request/response bodies larger than this are truncated (not dropped), flagged with
+            <code>responseBodyTruncated</code> / <code>postDataTruncated</code>. Default <code>200</code> ko,
+            max <code>1000</code> ko. Bodies are captured only for XHR/Fetch calls and only for data types
+            (JSON, XML, <code>text/plain</code>, form-encoded, GraphQL); page assets (HTML/CSS/JS, images,
+            fonts, media) are skipped (<code>responseBodyOmitted</code>: <code>"resource-type"</code> /
+            <code>"non-text"</code>). <code>multipart/form-data</code> request bodies are parsed down to
+            their text fields (<code>postDataFields</code>); file uploads are dropped. Secret-bearing fields
+            (<code>password</code>, <code>token</code>, …) are masked on export.
+        </p>
+    </div>
+
+    <span id="saveAck" class="ack hidden">saved</span>
+
+    <script src="options.js"></script>
+</body>
+</html>

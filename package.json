@@ -1,0 +1,11 @@
+{
+  "name": "debug-logs-catcher",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Internal Enreach tool: capture WebSocket, console, network, and environment metadata from a tab.",
+  "scripts": {
+    "test": "node --test",
+    "coverage": "node --test --experimental-test-coverage"
+  }
+}

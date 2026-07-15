@@ -4,6 +4,46 @@ All notable changes to this extension are documented here. Format roughly
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 follow [SemVer](https://semver.org/).
 
+## [1.1.0] — 2026-07-15
+
+### Added
+
+- HTTP response bodies are now actually captured (via `Network.getResponseBody`),
+  not just request/response metadata. Full request bodies are fetched too
+  (`Network.getRequestPostData`) when the body was not inlined. Complete JSON
+  response bodies are exported as parsed objects; truncated or non-JSON bodies
+  stay strings.
+- Deep serialization of console objects (`Runtime.getProperties` with
+  `generatePreview`) instead of opaque `"Object"` placeholders. Depth is
+  configurable; the default (1) expands one level plus a free preview of nested
+  objects at one CDP call per logged object, with no getter side effects.
+- Extension **Options page** (right-click → Manage extension → Extension options)
+  exposing two expert settings as sliders, applied live: console serialization
+  depth (0–8) and max captured body size (1–1000 ko).
+- `multipart/form-data` request bodies are parsed down to their text fields
+  (`postDataFields`); file-upload parts are dropped. Captures ACD-style form
+  posts whose fields would otherwise be invisible.
+- Export `meta.formatVersion` for downstream parsers.
+- Shared pure-logic module (`lib/capture.js`) with a `node --test` suite
+  (`npm test`) covering the mime allowlist, multipart parser, size clamping,
+  truncation, and deep serialization.
+
+### Changed
+
+- Bodies over the size limit (default 200 ko) are truncated, not dropped
+  (`responseBodyTruncated` / `postDataTruncated`). Bodies are captured only for
+  XHR/Fetch traffic and only for data content types (JSON, XML, `text/plain`,
+  form-encoded, GraphQL); page assets (HTML/CSS/JS, images, fonts, media) are
+  skipped (`responseBodyOmitted` / `postDataOmitted`: `"resource-type"` /
+  `"non-text"`).
+- Export redaction now also covers response/request bodies and deep-serialized
+  console objects (unless *Include all headers in export* is on), including
+  masking secret-bearing fields by key name — `password` / `token` / `secret`
+  fully (`<redacted>`), API keys partially (`sk_***456`, so you still know which
+  key was used). Catches e.g. the `user.password` hash returned by `/v1/user/Info`.
+- Background service worker is now an ES module (`"type": "module"`) so it can
+  share `lib/capture.js` with the test suite.
+
 ## [1.0.1] — 2026-07-02
 
 ### Added

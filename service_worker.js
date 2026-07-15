@@ -1,4 +1,16 @@
-'use strict';
+import {
+    DEFAULT_MAX_BODY_KB,
+    DEFAULT_CONSOLE_DEPTH,
+    coerceMaxBodyKB,
+    coerceConsoleDepth,
+    isTextMime,
+    isCapturableResourceType,
+    contentTypeOf,
+    isMultipart,
+    parseMultipartFields,
+    truncate,
+    serializeDeep
+} from './lib/capture.js';
 
 const PROTOCOL_VERSION = '1.3';
 const MAX_WS_FRAMES = 5000;
@@ -7,13 +19,23 @@ const MAX_NETWORK = 5000;
 
 const BUILD_INFO_PATH = '/build.json';
 
+// kilo-octet (ko) = 1000 octets (SI). maxBodyKB stores the ko value; bytes = ko * 1000.
+const BYTES_PER_KO = 1000;
+
 const captures = new Map();
 let autoDomains = [];
 let clearOnReload = true;
+let maxBodyBytes = DEFAULT_MAX_BODY_KB * BYTES_PER_KO;
+let consoleDepth = DEFAULT_CONSOLE_DEPTH;
 
-chrome.storage.local.get(['autoDomains', 'clearOnReload'], (data) => {
+// Bind a tab-scoped CDP command sender for the chrome-free serializeDeep helper.
+const sendCommandFor = (tabId) => (method, params) => chrome.debugger.sendCommand({ tabId }, method, params);
+
+chrome.storage.local.get(['autoDomains', 'clearOnReload', 'maxBodyKB', 'consoleDepth'], (data) => {
     autoDomains = Array.isArray(data.autoDomains) ? data.autoDomains : [];
     clearOnReload = data.clearOnReload !== false;
+    maxBodyBytes = coerceMaxBodyKB(data.maxBodyKB) * BYTES_PER_KO;
+    consoleDepth = coerceConsoleDepth(data.consoleDepth);
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
@@ -23,6 +45,12 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
     if (changes.clearOnReload) {
         clearOnReload = changes.clearOnReload.newValue !== false;
+    }
+    if (changes.maxBodyKB) {
+        maxBodyBytes = coerceMaxBodyKB(changes.maxBodyKB.newValue) * BYTES_PER_KO;
+    }
+    if (changes.consoleDepth) {
+        consoleDepth = coerceConsoleDepth(changes.consoleDepth.newValue);
     }
 });
 
@@ -177,6 +205,7 @@ function exportCapture(tabId) {
     if (!cap) return undefined;
     return {
         meta: {
+            formatVersion: 2,
             tabId,
             exportedAt: Date.now(),
             startedAt: cap.startedAt,
@@ -201,6 +230,71 @@ function serializeRemoteObject(arg) {
     if (arg.preview) return arg.preview;
     if (arg.description) return arg.description;
     return undefined;
+}
+
+// Best-effort: fetch the response body via CDP once the request finished, before the buffer is evicted.
+// Non-text bodies are skipped, oversized bodies truncated (not dropped). Fire-and-forget; mutates req.
+async function captureResponseBody(tabId, requestId, req) {
+    if (req.type !== 'http') return;
+    if (!isCapturableResourceType(req.resourceType)) {
+        req.responseBodyOmitted = 'resource-type';
+        return;
+    }
+    if (!isTextMime(req.mimeType)) {
+        req.responseBodyOmitted = 'non-text';
+        return;
+    }
+    try {
+        const res = await chrome.debugger.sendCommand({ tabId }, 'Network.getResponseBody', { requestId });
+        if (!res || typeof res.body !== 'string') return;
+        if (res.base64Encoded) req.responseBodyBase64 = true;
+        const t = truncate(res.body, maxBodyBytes);
+        req.responseBody = t.value;
+        if (t.truncated) req.responseBodyTruncated = true;
+    } catch (e) {
+        req.responseBodyError = String((e && e.message) || e);
+    }
+}
+
+// Full request body: requestWillBeSent inlines postData only for small bodies; fetch the rest explicitly.
+// multipart/form-data is parsed down to its text fields (file parts dropped) so form posts are captured
+// without their binary uploads; other non-text request bodies are skipped.
+async function captureRequestBody(tabId, requestId, req) {
+    if (req.type !== 'http') return;
+    if (!req.hasPostData || req.postData) return;
+    if (!isCapturableResourceType(req.resourceType)) {
+        req.postDataOmitted = 'resource-type';
+        return;
+    }
+    const contentType = contentTypeOf(req.headers);
+    const multipart = isMultipart(contentType);
+    if (!multipart && !isTextMime(contentType)) {
+        req.postDataOmitted = 'non-text';
+        return;
+    }
+    try {
+        const res = await chrome.debugger.sendCommand({ tabId }, 'Network.getRequestPostData', { requestId });
+        if (!res || typeof res.postData !== 'string') return;
+        if (multipart) {
+            req.postDataFields = parseMultipartFields(res.postData, contentType);
+        } else {
+            const t = truncate(res.postData, maxBodyBytes);
+            req.postData = t.value;
+            if (t.truncated) req.postDataTruncated = true;
+        }
+    } catch (e) {
+        req.postDataError = String((e && e.message) || e);
+    }
+}
+
+// Enrich already-pushed console args in place: replace object args with a deep-serialized plain value.
+function enrichConsoleArgs(tabId, remoteArgs, entry) {
+    (remoteArgs || []).forEach((ro, i) => {
+        if (!ro || ro.objectId === undefined) return;
+        serializeDeep(sendCommandFor(tabId), ro, consoleDepth)
+            .then((plain) => { if (plain !== undefined) entry.args[i] = plain; })
+            .catch(() => { /* keep the shallow preview */ });
+    });
 }
 
 chrome.debugger.onEvent.addListener((source, method, params) => {
@@ -250,6 +344,7 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
                 method: params.request.method,
                 headers: params.request.headers,
                 postData: params.request.postData,
+                hasPostData: params.request.hasPostData,
                 t: Date.now(),
                 cdpTimestamp: params.timestamp
             });
@@ -266,6 +361,7 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
                 req.responseStatusText = params.response.statusText;
                 req.responseHeaders = params.response.headers;
                 req.mimeType = params.response.mimeType;
+                req.resourceType = params.type;
                 req.fromDiskCache = params.response.fromDiskCache;
             }
             break;
@@ -275,6 +371,8 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
             if (req) {
                 req.encodedDataLength = params.encodedDataLength;
                 req.finishedAt = Date.now();
+                captureResponseBody(tabId, params.requestId, req);
+                captureRequestBody(tabId, params.requestId, req);
             }
             break;
         }
@@ -289,13 +387,15 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
             break;
         }
         case 'Runtime.consoleAPICalled': {
-            pushBounded(cap.console, {
+            const entry = {
                 t: Date.now(),
                 cdpTimestamp: params.timestamp,
                 level: params.type,
                 args: (params.args || []).map(serializeRemoteObject),
                 stackTrace: params.stackTrace
-            }, MAX_CONSOLE);
+            };
+            pushBounded(cap.console, entry, MAX_CONSOLE);
+            if (consoleDepth >= 1) enrichConsoleArgs(tabId, params.args, entry);
             break;
         }
         case 'Runtime.exceptionThrown': {
