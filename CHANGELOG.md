@@ -36,11 +36,25 @@ follow [SemVer](https://semver.org/).
   form-encoded, GraphQL); page assets (HTML/CSS/JS, images, fonts, media) are
   skipped (`responseBodyOmitted` / `postDataOmitted`: `"resource-type"` /
   `"non-text"`).
-- Export redaction now also covers response/request bodies and deep-serialized
-  console objects (unless *Include all headers in export* is on), including
-  masking secret-bearing fields by key name — `password` / `token` / `secret`
-  fully (`<redacted>`), API keys partially (`sk_***456`, so you still know which
-  key was used). Catches e.g. the `user.password` hash returned by `/v1/user/Info`.
+- Export redaction now also covers response/request bodies, deep-serialized console
+  objects and `meta.environment` (unless *Include all headers in export* is on).
+  Secret-bearing fields are masked by key name: `password` / `secret` / `credential`
+  fully (`<redacted>`); API keys, tokens and session ids partially (`5b7***653` —
+  correlatable across the capture but unusable). Catches e.g. the `user.password`
+  hash from `/v1/user/Info` and the session token in the decoded JWT.
+- Console / exception entries no longer carry the CDP `stackTrace` object (a
+  ~14-frame trace used to hang off every single log, ~60% of a capture's size).
+  It was redundant: for a logged error the useful throw stack is already in the
+  entry's `args` (or the exception's `text` / `url` / line / column). Dropped.
+- Dropped the redundant `cdpTimestamp` field from every entry — `t` (Date.now,
+  epoch ms) is kept as the single wall-clock across console / network / exceptions
+  (network's cdpTimestamp was a monotonic clock, not a real time anyway).
+- Trim captured headers. Request headers keep only an allowlist (`Content-Type`,
+  `X-Authenticate`, `Range`); `User-Agent` / `Referer` / `Origin` are lifted once
+  into `meta.environment` instead of repeating on every request. Response headers
+  additionally strip caching/transport noise (`Date`, `ETag`, `Expires`,
+  `Last-Modified`, `Cache-Control`, `Vary`, `Accept-Ranges`, `Content-Encoding`,
+  `Content-Length`, and CORP/COOP/COEP including their underscore variants).
 - Background service worker is now an ES module (`"type": "module"`) so it can
   share `lib/capture.js` with the test suite.
 

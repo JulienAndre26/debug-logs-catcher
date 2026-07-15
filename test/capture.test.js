@@ -72,21 +72,23 @@ test('redactSensitiveInPlace masks string secrets, keeps benign values', () => {
         user: { password: '11328f43deadbeefhash', name: 'rbryant', changePasswordLocked: false, hasPassword: true },
         authToken: 'abc.def.ghi',
         tokenExpiry: 12345,
+        sessionID: '6434020671595375190',
         apiKey: 'sk_live_abcdef123456',
         x_api_key: 'short',
         nested: [{ secret: 's' }, { note: 'keep' }],
         passwordPolicy: { minLength: 8 }
     };
     redactSensitiveInPlace(obj);
-    assert.equal(obj.user.password, '<redacted>');
+    assert.equal(obj.user.password, '<redacted>');        // pure secret: fully masked
     assert.equal(obj.user.name, 'rbryant');
     assert.equal(obj.user.changePasswordLocked, false);   // boolean left intact
     assert.equal(obj.user.hasPassword, true);
-    assert.equal(obj.authToken, '<redacted>');
-    assert.equal(obj.tokenExpiry, 12345);                 // number left intact
-    assert.equal(obj.apiKey, 'sk_***456');                // API keys partially masked (first 3 + *** + last 3)
+    assert.equal(obj.nested[0].secret, '<redacted>');     // pure secret: fully masked
+    assert.equal(obj.authToken, 'abc***ghi');             // token: partially masked (correlatable, unusable)
+    assert.equal(obj.sessionID, '643***190');             // session id: partially masked
+    assert.equal(obj.apiKey, 'sk_***456');                // API key: partially masked
     assert.equal(obj.x_api_key, '***');                   // too short to partially reveal
-    assert.equal(obj.nested[0].secret, '<redacted>');
+    assert.equal(obj.tokenExpiry, 12345);                 // number left intact (key matches but value is not a string)
     assert.equal(obj.nested[1].note, 'keep');
     assert.deepEqual(obj.passwordPolicy, { minLength: 8 }); // object value untouched (recursed, no string secret)
 });

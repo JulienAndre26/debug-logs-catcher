@@ -20,8 +20,28 @@ const BOILERPLATE_HEADERS = new Set([
     'permissions-policy',
     'cross-origin-opener-policy',
     'cross-origin-embedder-policy',
-    'cross-origin-resource-policy'
+    'cross-origin-resource-policy',
+    // underscore variants (the backend sends these with underscores). A CORS misconfig surfaces as a
+    // console CORS error with the offending policy, so these response headers add nothing.
+    'cross_origin_opener_policy',
+    'cross_origin_embedder_policy',
+    'cross_origin_resource_policy',
+    // caching / transport noise, identical or irrelevant for debugging
+    'date',
+    'etag',
+    'expires',
+    'last-modified',
+    'cache-control',
+    'vary',
+    'accept-ranges',
+    'content-encoding',
+    'content-length'
 ]);
+
+// Request headers worth keeping per-request. Everything else (User-Agent, Referer, Origin, Accept,
+// Accept-Encoding, Upgrade-Insecure-Requests…) is noise — identical across requests. User-Agent /
+// Referer / Origin are lifted once into meta.environment instead (see extractEnvironment).
+const REQUEST_HEADER_KEEP = new Set(['content-type', 'x-authenticate', 'range']);
 
 const BEARER_RE = /Bearer:?\s*[A-Za-z0-9._\-+/=]+/g;
 const BEARER_TOKEN_RE = /Bearer:?\s*([A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+)/;
@@ -40,6 +60,17 @@ function decodeJwt(token) {
 }
 
 function extractEnvironment(data) {
+    const env = {};
+    // User-Agent / Referer / Origin are identical across every request — lift them here once instead
+    // of repeating them on each network entry (see REQUEST_HEADER_KEEP, which drops them per-request).
+    const withHeaders = (data.network || []).find((r) => r.headers) || {};
+    for (const [k, v] of Object.entries(withHeaders.headers || {})) {
+        const kl = k.toLowerCase();
+        if (kl === 'user-agent') env.userAgent = v;
+        else if (kl === 'referer') env.referer = v;
+        else if (kl === 'origin') env.origin = v;
+    }
+    // Decoded payload of the first JWT bearer token seen.
     const sources = [];
     for (const req of (data.network || []).slice(0, 30)) {
         for (const v of Object.values(req.headers || {})) {
@@ -53,9 +84,9 @@ function extractEnvironment(data) {
         const m = s.match(BEARER_TOKEN_RE);
         if (!m) continue;
         const decoded = decodeJwt(m[1]);
-        if (decoded) return decoded;
+        if (decoded) { Object.assign(env, decoded); break; }
     }
-    return undefined;
+    return Object.keys(env).length ? env : undefined;
 }
 
 const DEBUGGABLE_SCHEMES = new Set(['http:', 'https:']);
@@ -144,6 +175,16 @@ function stripHeaders(headers) {
     return out;
 }
 
+// Request headers use an allowlist (few are useful) rather than the response denylist.
+function allowlistRequestHeaders(headers) {
+    if (!headers) return headers;
+    const out = {};
+    for (const [k, v] of Object.entries(headers)) {
+        if (REQUEST_HEADER_KEEP.has(k.toLowerCase())) out[k] = v;
+    }
+    return out;
+}
+
 function redactString(s) {
     if (typeof s !== 'string') return s;
     return s.replace(BEARER_RE, 'Bearer:<redacted>').replace(AUTH_FIELD_RE, '"$1":"<redacted>"');
@@ -209,7 +250,7 @@ function stripData(data) {
         network: (data.network || []).map((req) => ({
             ...req,
             url: redactString(req.url),
-            headers: stripHeaders(req.headers),
+            headers: allowlistRequestHeaders(req.headers),
             responseHeaders: stripHeaders(req.responseHeaders),
             postData: stripPayload(req.postData),
             responseBody: stripBody(req.responseBody, req.responseBodyBase64)
@@ -244,6 +285,9 @@ async function onExport(event) {
     const settings = await chrome.storage.local.get(['includeAllHeaders']);
     const data = settings.includeAllHeaders ? result.data : stripData(result.data);
     if (environment) {
+        // environment carries the decoded JWT payload, incl. the session token — mask it like any body
+        // (skipped in raw mode, consistent with the rest of the redaction).
+        if (!settings.includeAllHeaders) redactSensitiveInPlace(environment);
         data.meta = { ...data.meta, environment };
     }
     const json = JSON.stringify(data, null, 2);

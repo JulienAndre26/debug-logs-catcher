@@ -345,8 +345,7 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
                 headers: params.request.headers,
                 postData: params.request.postData,
                 hasPostData: params.request.hasPostData,
-                t: Date.now(),
-                cdpTimestamp: params.timestamp
+                t: Date.now()
             });
             if (cap.network.size > MAX_NETWORK) {
                 const firstKey = cap.network.keys().next().value;
@@ -389,10 +388,8 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
         case 'Runtime.consoleAPICalled': {
             const entry = {
                 t: Date.now(),
-                cdpTimestamp: params.timestamp,
                 level: params.type,
-                args: (params.args || []).map(serializeRemoteObject),
-                stackTrace: params.stackTrace
+                args: (params.args || []).map(serializeRemoteObject)
             };
             pushBounded(cap.console, entry, MAX_CONSOLE);
             if (consoleDepth >= 1) enrichConsoleArgs(tabId, params.args, entry);
@@ -402,14 +399,12 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
             const ed = params.exceptionDetails || {};
             pushBounded(cap.console, {
                 t: Date.now(),
-                cdpTimestamp: params.timestamp,
                 level: 'exception',
                 text: ed.text,
                 exception: ed.exception ? serializeRemoteObject(ed.exception) : undefined,
                 url: ed.url,
                 lineNumber: ed.lineNumber,
-                columnNumber: ed.columnNumber,
-                stackTrace: ed.stackTrace
+                columnNumber: ed.columnNumber
             }, MAX_CONSOLE);
             break;
         }
