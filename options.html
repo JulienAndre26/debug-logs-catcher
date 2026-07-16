@@ -3,59 +3,210 @@
 <head>
     <meta charset="utf-8">
     <title>Debug Logs Catcher — Options</title>
-    <link rel="stylesheet" href="popup.css">
     <style>
-        body { width: auto; max-width: 520px; margin: 0 auto; padding: 24px; }
-        .field { margin: 16px 0; }
-        .field > label { display: block; font-weight: 600; margin-bottom: 4px; }
-        .field > input[type="range"] {
-            width: 260px;
-            max-width: 100%;
-            vertical-align: middle;
+        /* Standalone Material-ish theme mirroring chrome://extensions so the page feels native
+           next to Chrome's own "manage extension" surface. Light + dark, following the browser theme. */
+        :root {
+            --bg: #f8f9fa;
+            --card: #ffffff;
+            --text: #202124;
+            --text-secondary: #5f6368;
+            --divider: #e0e0e0;
+            --accent: #1a73e8;
+            --chip-bg: #e8f0fe;
+            --chip-text: #1a73e8;
+            --code-bg: #f1f3f4;
+            --toast-bg: #323232;
+            --toast-text: #ffffff;
+            --shadow: 0 1px 2px 0 rgba(60, 64, 67, .3), 0 1px 3px 1px rgba(60, 64, 67, .15);
         }
-        .field > label > output {
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #202124;
+                --card: #292a2d;
+                --text: #e8eaed;
+                --text-secondary: #9aa0a6;
+                --divider: #3c4043;
+                --accent: #8ab4f8;
+                --chip-bg: rgba(138, 180, 248, .16);
+                --chip-text: #8ab4f8;
+                --code-bg: #3c4043;
+                --toast-bg: #e8eaed;
+                --toast-text: #202124;
+                --shadow: 0 1px 2px 0 rgba(0, 0, 0, .3), 0 1px 3px 1px rgba(0, 0, 0, .15);
+            }
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 24px 16px;
+            font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--text);
+            background: var(--bg);
+            color-scheme: light dark;
+        }
+
+        .card {
+            max-width: 680px;
+            margin: 0 auto;
+            background: var(--card);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+
+        .page-head {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--divider);
+        }
+
+        .page-head > img {
+            width: 32px;
+            height: 32px;
+            flex-shrink: 0;
+        }
+
+        .page-head h1 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .page-head .subtitle {
+            margin: 2px 0 0;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .setting-row {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--divider);
+        }
+
+        .setting-row:last-child { border-bottom: none; }
+
+        .setting-title {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .setting-desc {
+            margin: 0 0 14px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .setting-control {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .setting-control > input[type="range"] {
+            flex: 1;
+            min-width: 0;
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+
+        .value-badge {
+            flex-shrink: 0;
+            width: 72px;
+            padding: 4px 0;
+            text-align: center;
+            border-radius: 999px;
+            background: var(--chip-bg);
+            color: var(--chip-text);
+            font-weight: 600;
+            font-size: 13px;
             font-variant-numeric: tabular-nums;
-            font-weight: 700;
-            color: var(--color-primary);
         }
-        .field > .hint { margin-top: 4px; }
+
+        code {
+            background: var(--code-bg);
+            padding: 1px 4px;
+            border-radius: 4px;
+            font-family: ui-monospace, 'SF Mono', 'Roboto Mono', Menlo, monospace;
+            font-size: .9em;
+        }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 6px;
+            background: var(--toast-bg);
+            color: var(--toast-text);
+            font-size: 13px;
+            box-shadow: var(--shadow);
+            opacity: 1;
+            transition: opacity .2s ease, visibility .2s ease;
+        }
+
+        .toast.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
-    <header>
-        <span class="dot on"></span>
-        <h1>Debug Logs Catcher — Options</h1>
-    </header>
+    <main class="card">
+        <header class="page-head">
+            <img src="icons/icon-48.png" alt="">
+            <div>
+                <h1>Debug Logs Catcher</h1>
+                <p class="subtitle">Expert capture settings — applied to the next captured events, no restart needed.</p>
+            </div>
+        </header>
 
-    <p class="hint">Expert capture settings. Changes apply to the next captured events — no restart needed.</p>
+        <div class="setting-row">
+            <div class="setting-text">
+                <label for="consoleDepth" class="setting-title">Console object serialization depth</label>
+                <p class="setting-desc">
+                    How deep console objects are expanded (<code>0</code>–<code>8</code>). <code>0</code> =
+                    shallow preview only. <code>1</code> (default) = one level plus a free preview of nested
+                    objects — one CDP call per logged object. Higher values fully expand nested objects but
+                    issue many more CDP calls and can lag on chatty pages.
+                </p>
+            </div>
+            <div class="setting-control">
+                <input type="range" id="consoleDepth" min="0" max="8" step="1">
+                <output id="consoleDepthVal" class="value-badge"></output>
+            </div>
+        </div>
 
-    <div class="field">
-        <label for="consoleDepth">Console object serialization depth: <output id="consoleDepthVal"></output></label>
-        <input type="range" id="consoleDepth" min="0" max="8" step="1">
-        <p class="hint">
-            How deep console objects are expanded (range <code>0</code>–<code>8</code>). <code>0</code> =
-            shallow preview only. <code>1</code> (default) = one level plus a free preview of nested objects —
-            one CDP call per logged object. Higher values fully expand nested objects but issue many more CDP
-            calls and can lag on chatty pages (arrays of objects fan out).
-        </p>
-    </div>
+        <div class="setting-row">
+            <div class="setting-text">
+                <label for="maxBodyKB" class="setting-title">Max captured body size</label>
+                <p class="setting-desc">
+                    Request/response bodies larger than this are truncated (not dropped), flagged with
+                    <code>responseBodyTruncated</code> / <code>postDataTruncated</code>. Default
+                    <code>200</code> ko, max <code>1000</code> ko. Bodies are captured only for XHR/Fetch calls
+                    and only for data types (JSON, XML, <code>text/plain</code>, form-encoded, GraphQL); page
+                    assets and binaries are skipped. Secret-bearing fields are masked on export.
+                </p>
+            </div>
+            <div class="setting-control">
+                <input type="range" id="maxBodyKB" min="1" max="1000" step="1">
+                <output id="maxBodyKBVal" class="value-badge"></output>
+            </div>
+        </div>
+    </main>
 
-    <div class="field">
-        <label for="maxBodyKB">Max captured body size: <output id="maxBodyKBVal"></output> ko</label>
-        <input type="range" id="maxBodyKB" min="1" max="1000" step="1">
-        <p class="hint">
-            Request/response bodies larger than this are truncated (not dropped), flagged with
-            <code>responseBodyTruncated</code> / <code>postDataTruncated</code>. Default <code>200</code> ko,
-            max <code>1000</code> ko. Bodies are captured only for XHR/Fetch calls and only for data types
-            (JSON, XML, <code>text/plain</code>, form-encoded, GraphQL); page assets (HTML/CSS/JS, images,
-            fonts, media) are skipped (<code>responseBodyOmitted</code>: <code>"resource-type"</code> /
-            <code>"non-text"</code>). <code>multipart/form-data</code> request bodies are parsed down to
-            their text fields (<code>postDataFields</code>); file uploads are dropped. Secret-bearing fields
-            (<code>password</code>, <code>token</code>, …) are masked on export.
-        </p>
-    </div>
-
-    <span id="saveAck" class="ack hidden">saved</span>
+    <div id="saveAck" class="toast hidden">Saved</div>
 
     <script src="options.js"></script>
 </body>

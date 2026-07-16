@@ -11,21 +11,21 @@ function flashAck() {
     setTimeout(() => ack.classList.add('hidden'), 1200);
 }
 
-function setRange(id, value) {
+function setRange(id, value, suffix) {
     document.getElementById(id).value = value;
-    document.getElementById(id + 'Val').textContent = value;
+    document.getElementById(id + 'Val').textContent = suffix ? value + suffix : value;
 }
 
-function bindRange(id, key, def, min, max) {
+function bindRange(id, key, def, min, max, suffix) {
     const el = document.getElementById(id);
     const out = document.getElementById(id + 'Val');
     // Live value while dragging; persist only when released (change) to avoid a storage write per tick.
-    el.addEventListener('input', () => { out.textContent = el.value; });
+    el.addEventListener('input', () => { out.textContent = suffix ? el.value + suffix : el.value; });
     el.addEventListener('change', () => {
         let n = Math.floor(Number(el.value));
         if (!Number.isFinite(n)) n = def;
         n = Math.min(max, Math.max(min, n));
-        setRange(id, n);
+        setRange(id, n, suffix);
         chrome.storage.local.set({ [key]: n });
         flashAck();
     });
@@ -40,10 +40,10 @@ async function load() {
         ? Math.min(MAX_BODY_KB, Math.floor(Number(s.maxBodyKB)))
         : DEFAULT_MAX_BODY_KB;
     setRange('consoleDepth', depth);
-    setRange('maxBodyKB', maxKB);
+    setRange('maxBodyKB', maxKB, ' ko');
 }
 
 bindRange('consoleDepth', 'consoleDepth', DEFAULT_CONSOLE_DEPTH, 0, MAX_CONSOLE_DEPTH);
-bindRange('maxBodyKB', 'maxBodyKB', DEFAULT_MAX_BODY_KB, 1, MAX_BODY_KB);
+bindRange('maxBodyKB', 'maxBodyKB', DEFAULT_MAX_BODY_KB, 1, MAX_BODY_KB, ' ko');
 
 load();

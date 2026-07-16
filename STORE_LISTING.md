@@ -43,13 +43,15 @@ so the next submission has the latest text ready to copy.
 > What it captures while attached:
 >
 > • WebSocket frames sent and received, with payload and timing
-> • Network requests and responses (URL, method, headers, body, status, size)
-> • Console output and uncaught exceptions, with stack traces. Call
->   arguments are captured as Chrome DevTools Protocol's `ObjectPreview`:
->   top-level property names with their primitive values; nested
->   objects/arrays appear as `"Object"` / `"Array(N)"` placeholders,
->   with no deeper recursion (like the DevTools console panel before
->   you click to expand an object)
+> • Network requests and responses (URL, method, headers, request and
+>   response body, status, size). Bodies are captured for data content
+>   types up to a configurable size limit; page assets and binary
+>   responses are skipped
+> • Console output and uncaught exceptions. Call arguments are serialized
+>   via the Chrome DevTools Protocol to a configurable depth (default one
+>   level plus a preview of the next): primitive values verbatim, nested
+>   objects/arrays expanded, own enumerable properties only, no getters
+>   invoked
 > • Environment metadata: `/build.json` if served, plus the decoded payload
 >   of the first JWT bearer token seen (tenant, user, server context)
 >
@@ -73,6 +75,8 @@ so the next submission has the latest text ready to copy.
 >   and 5 000 network requests so a long session does not blow up memory.
 > • **Per-tab badge** — shows when capture is running on tabs other than
 >   the active one, so you do not forget the debugger is attached.
+> • **Theme-aware UI** — the popup and the options page follow your system
+>   light or dark theme.
 >
 > Everything stays on your computer. The extension makes no network call of
 > its own, has no analytics, and the publisher never sees your data.
@@ -226,13 +230,14 @@ or use this data?*
 
 ## Submission checklist
 
-- [ ] Bump `manifest.json` version if anything changed since last upload.
-- [ ] `zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' '.gitignore' 'STORE_LISTING.md' 'docs/*' 'screenshots/*' 'icons/*.svg'`
-      (STORE_LISTING, `docs/` Pages source, and `screenshots/` are
-      internal — do not ship them; LICENSE, CHANGELOG, and README are fine
-      to include. The privacy policy lives under `docs/` and is shipped
-      via the Pages URL, not inside the ZIP — Chrome rejects any file
-      starting with `_` so `_config.yml` must stay out.)
+- [ ] Bump `manifest.json` version (and `package.json` to match) if anything
+      changed since last upload.
+- [ ] `npm run package` (produces `debug-logs-catcher-vX.Y.Z.zip`).
+      (STORE_LISTING, `docs/` Pages source, `screenshots/`, the `test/` suite,
+      and `package.json` are internal/dev-only — do not ship them; LICENSE,
+      CHANGELOG, and README are fine to include. The privacy policy lives
+      under `docs/` and is shipped via the Pages URL, not inside the ZIP —
+      Chrome rejects any file starting with `_` so `_config.yml` must stay out.)
 - [ ] Upload ZIP in the developer dashboard.
 - [ ] Paste every field above from this file.
 - [ ] Fill the data usage disclosures.

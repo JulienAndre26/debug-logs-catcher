@@ -21,15 +21,16 @@ debugger to the current tab and records, in memory only:
 
 - **WebSocket frames** sent and received by the page (payload + timing).
 - **HTTP requests and responses** issued by the page (URL, method, headers,
-  post body, response status, headers, size, timing).
+  request body, response body, status, size, timing). Bodies are captured for
+  data content types (JSON, XML, form-encoded, plain text) up to a configurable
+  size limit and truncated beyond it; page assets (HTML/CSS/JS) and binary
+  responses (images, fonts, media) are skipped.
 - **Console output** (`console.log` / `warn` / `error` / etc.) and uncaught
-  JavaScript exceptions, including stack traces. Each call's *arguments* are
-  recorded as structured data — primitive values verbatim, and objects/arrays
-  as Chrome DevTools Protocol's `ObjectPreview` (top-level property names with
-  their primitive values; nested objects and arrays appear only as their
-  description, e.g. `"Object"` or `"Array(11)"`, with no recursion into their
-  contents — like the Chrome DevTools console panel before you click on an
-  object to expand its nested properties).
+  JavaScript exceptions. Each call's *arguments* are recorded as structured
+  data — primitive values verbatim, and objects/arrays serialized via the
+  Chrome DevTools Protocol to a configurable depth (default one level, plus a
+  free preview of the next). Serialization reads own enumerable properties only
+  and never invokes getters, so it has no side effect on the page.
 - **Environment metadata** decoded from the page, when available:
   - The content of `/build.json` if served by the site (branch, build number,
     version, server identity).

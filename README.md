@@ -40,6 +40,8 @@ on any tab.
   currently viewing, so you do not forget the debugger is attached.
 - **Clear-on-reload** — optional (on by default). Discards the buffer
   when the page reloads, so each repro attempt starts clean.
+- **Theme-aware UI** — the popup and the options page follow the system
+  light or dark theme.
 
 ## Installation
 
@@ -142,10 +144,15 @@ See [docs/PRIVACY.md](docs/PRIVACY.md) for the full privacy policy
 ```
 manifest.json         MV3 manifest
 service_worker.js     CDP listeners, capture buffers, attach/detach lifecycle
+lib/capture.js        Pure capture helpers (mime allowlist, multipart, redaction, deep serialization)
 popup.html            Popup UI
 popup.js              Popup logic, export pipeline, redaction
 popup.css             Popup styling
+options.html          Options page — expert settings (console depth, max body size)
+options.js            Options page logic (persists to chrome.storage.local)
 icons/                16/32/48/128 PNG icons
+test/                 node --test suite covering lib/capture.js
+package.json          Dev scripts (test, coverage, package) — not shipped in the ZIP
 docs/                 GitHub Pages source (landing + privacy policy)
 STORE_LISTING.md      Source of truth for Chrome Web Store form copy
 CHANGELOG.md          Release notes
@@ -154,23 +161,22 @@ LICENSE               License
 
 ## Development
 
-There is no build step — the repo content is the extension. Edit, reload
-on `chrome://extensions`, retry.
+There is no bundler — the repo content is the extension. Edit, reload on
+`chrome://extensions`, retry. The pure capture logic lives in `lib/capture.js`
+and is covered by a `node --test` suite: run `npm test` (or `npm run coverage`).
 
 Before publishing a new version:
 
-1. Bump `manifest.json` → `version`.
+1. Bump `manifest.json` → `version` (and `package.json` → `version` to match —
+   `npm run package` names the ZIP from it).
 2. Add a `CHANGELOG.md` entry.
 3. `git tag vX.Y.Z && git push --tags`.
-4. Produce the upload zip:
-   ```
-   zip -r debug-logs-catcher-vX.Y.Z.zip . -x '.git/*' '.idea/*' '*.zip' '.gitignore' 'STORE_LISTING.md' 'docs/*' 'screenshots/*' 'icons/*.svg'
-   ```
-   (STORE_LISTING, the `docs/` Pages source, and `screenshots/` are
-   internal-only; LICENSE, CHANGELOG, and README are kept in the bundle.
-   The privacy policy lives under `docs/` and is shipped via the Pages URL,
-   not inside the ZIP &mdash; Chrome rejects any file starting with `_` so
-   `_config.yml` must stay out.)
+4. Produce the upload zip with `npm run package`.
+   (STORE_LISTING, the `docs/` Pages source, `screenshots/`, the `test/` suite,
+   and `package.json` are dev/internal-only and stay out; LICENSE, CHANGELOG,
+   and README are kept in the bundle. The privacy policy lives under `docs/`
+   and is shipped via the Pages URL, not inside the ZIP &mdash; Chrome rejects
+   any file starting with `_` so `_config.yml` must stay out.)
 5. Upload via the
    [Chrome Web Store dashboard](https://chrome.google.com/webstore/devconsole/)
    and paste the texts from `STORE_LISTING.md`.

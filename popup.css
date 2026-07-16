@@ -9,6 +9,7 @@
 
     --color-primary: #2563eb;
     --color-primary-hover: #1d4ed8;
+    --color-on-primary: #ffffff;
 
     --color-success: #22c55e;
     --color-success-halo: color-mix(in srgb, var(--color-success) 20%, transparent);
@@ -27,6 +28,35 @@
     --radius-small: 3px;
 }
 
+/* Follow the system theme, mirroring the theme-aware Options page. Colors are fully tokenized
+   above, so a dark variant is just a re-assignment of the same custom properties. */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-text: #e6edf3;
+        --color-text-muted: #8b949e;
+        --color-text-subtle: #6e7681;
+        --color-border: #30363d;
+        --color-bg: #0d1117;
+        --color-bg-subtle: #161b22;
+        --color-code-bg: #1f2937;
+
+        --color-primary: #4493f8;
+        --color-primary-hover: #58a6ff;
+
+        --color-success: #3fb950;
+        --color-success-text: #3fb950;
+
+        --color-danger-text: #ff7b72;
+        --color-danger-bg: #2d1618;
+        --color-danger-border: #5c2b2b;
+
+        --color-warning-text: #e3b341;
+        --color-warning-bg: #2d2410;
+        --color-warning-border: #5c4a1a;
+        --color-warning-code-bg: #3a2f14;
+    }
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -37,6 +67,7 @@ body {
     font-size: 13px;
     color: var(--color-text);
     background: var(--color-bg);
+    color-scheme: light dark;
 }
 
 header {
@@ -127,7 +158,7 @@ button {
 #addCurrentSite,
 #saveAutoDomains {
     background: var(--color-primary);
-    color: var(--color-bg);
+    color: var(--color-on-primary);
     border-color: var(--color-primary);
 
     &:hover:not(:disabled) {
@@ -171,6 +202,8 @@ textarea {
     font-family: ui-monospace, 'SF Mono', Menlo, monospace;
     font-size: 11px;
     padding: 6px;
+    color: var(--color-text);
+    background: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
     margin-bottom: 6px;

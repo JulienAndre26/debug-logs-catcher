@@ -23,6 +23,8 @@ follow [SemVer](https://semver.org/).
 - `multipart/form-data` request bodies are parsed down to their text fields
   (`postDataFields`); file-upload parts are dropped. Captures ACD-style form
   posts whose fields would otherwise be invisible.
+- Theme-aware UI — the popup and the Options page follow the system light or
+  dark theme. The Options page is styled as a `chrome://extensions`-like card.
 - Export `meta.formatVersion` for downstream parsers.
 - Shared pure-logic module (`lib/capture.js`) with a `node --test` suite
   (`npm test`) covering the mime allowlist, multipart parser, size clamping,

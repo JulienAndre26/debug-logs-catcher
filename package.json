@@ -6,6 +6,7 @@
   "description": "Internal Enreach tool: capture WebSocket, console, network, and environment metadata from a tab.",
   "scripts": {
     "test": "node --test",
-    "coverage": "node --test --experimental-test-coverage"
+    "coverage": "node --test --experimental-test-coverage",
+    "package": "zip -r debug-logs-catcher-v$npm_package_version.zip . -x '.git/*' '.idea/*' '*.zip' '.gitignore' 'STORE_LISTING.md' 'docs/*' 'screenshots/*' 'icons/*.svg' 'test/*' 'package.json' 'node_modules/*'"
   }
 }
