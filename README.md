@@ -14,13 +14,15 @@ on any tab.
 - **WebSocket capture** — every frame sent and received, with payload and
   timestamp (capped at 5 000 frames per tab).
 - **Console capture** — `console.log` / `warn` / `error` / etc. plus uncaught
-  exceptions, with stack traces. Call arguments are captured as Chrome
-  DevTools Protocol's `ObjectPreview`: top-level property names with their
-  primitive values; nested objects/arrays appear as `"Object"` / `"Array(N)"`
-  placeholders, with no deeper recursion (like the DevTools console panel
-  before you click to expand an object). Capped at 10 000 entries.
+  exceptions. Call arguments are serialized via the Chrome DevTools Protocol
+  to a configurable depth (default one level plus a preview of the next):
+  primitive values verbatim, nested objects/arrays expanded, own enumerable
+  properties only, no getters invoked. Capped at 10 000 entries.
 - **Network capture** — every HTTP request and response with URL, method,
-  headers, body, status, size, and timing (capped at 5 000 requests).
+  headers, status, size, and timing. Request and response bodies are captured
+  for XHR/Fetch data types (JSON, XML, `text/plain`, form-encoded, GraphQL) up
+  to a configurable size limit; page assets and binary responses are skipped.
+  Capped at 5 000 requests.
 - **Environment metadata** — automatically fetches `/build.json` from the
   inspected origin if served, and decodes the first JWT bearer token seen
   in network headers or WebSocket payloads to surface tenant / user / server
@@ -29,10 +31,12 @@ on any tab.
   extension attaches automatically the next time you visit them. One-click
   **Add current site** button in the popup, or type domains by hand.
   Permissions are requested per domain through Chrome's native prompt.
-- **Header / token redaction by default** — `Authorization`, `Cookie`,
-  `Set-Cookie`, `X-Application`, `X-Csrf-Token`, `X-Xsrf-Token`, and `Bearer …`
-  tokens are stripped from exports. Toggle off in Settings if you control
-  the recipient.
+- **Redaction by default** — sensitive headers (`Authorization`, `Cookie`,
+  `Set-Cookie`, `X-Application`, `X-Csrf-Token`, `X-Xsrf-Token`) and `Bearer …`
+  tokens are stripped from exports. Secret-bearing fields in bodies, console
+  objects, and the decoded JWT are masked by key name: `password` / `secret` /
+  `credential` fully (`<redacted>`), API keys / tokens / session ids partially
+  (`abc***xyz`). Toggle off in Settings if you control the recipient.
 - **Gzipped export by default** — click *Export* for a compact `.json.gz`,
   or `Shift+click` for raw `.json` when you want to read it directly in an
   editor.
@@ -42,6 +46,9 @@ on any tab.
   when the page reloads, so each repro attempt starts clean.
 - **Theme-aware UI** — the popup and the options page follow the system
   light or dark theme.
+- **Expert options** — an options page (right-click the icon → *Options*)
+  exposes two advanced settings applied live: console serialization depth and
+  max captured body size.
 
 ## Installation
 
@@ -95,6 +102,7 @@ Top-level structure:
 ```jsonc
 {
   "meta": {
+    "formatVersion": 2,
     "tabId": 123,
     "exportedAt": 1719399012345,
     "startedAt": 1719398999000,
@@ -103,8 +111,8 @@ Top-level structure:
   },
   "wsSent":     [{ "t": …, "requestId": …, "opcode": …, "payload": "…" }, …],
   "wsReceived": [{ … same shape … }],
-  "console":    [{ "t": …, "level": "log", "args": […], "stackTrace": … }, …],
-  "network":    [{ "t": …, "type": "http", "url": "…", "headers": …, "responseStatus": …, … }, …]
+  "console":    [{ "t": …, "level": "log", "args": […] }, …],
+  "network":    [{ "t": …, "type": "http", "url": "…", "headers": …, "responseStatus": …, "responseBody": …, … }, …]
 }
 ```
 
@@ -120,7 +128,7 @@ The extension declares the following permissions:
 | Permission | Why |
 |---|---|
 | `debugger` | Only way to receive WebSocket payloads, runtime console events, and exception details. Activation is always explicit (Start button or user-authorized Auto-capture domain). |
-| `storage` | Persist Auto-capture domain list and the two boolean settings. No captured data is ever written to storage. |
+| `storage` | Persist the Auto-capture domain list and user settings (two booleans plus the two expert options — console depth, max body size). No captured data is ever written to storage. |
 | `tabs` | Identify the active tab the popup acts on. |
 | `webNavigation` | Detect page reload (clear buffer) and detect navigation to an Auto-capture domain the user has authorized. |
 | `optional_host_permissions: <all_urls>` | **No host access at install time.** Requested per domain at runtime when the user adds it to the Auto-capture list, via Chrome's native permission prompt. Removing a domain revokes it. The manual *Start* button does not require any host permission — `debugger` is enough. |

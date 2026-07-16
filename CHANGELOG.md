@@ -4,7 +4,7 @@ All notable changes to this extension are documented here. Format roughly
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 follow [SemVer](https://semver.org/).
 
-## [1.1.0] — 2026-07-15
+## [1.1.0] — 2026-07-16
 
 ### Added
 

@@ -1,6 +1,6 @@
 # Privacy Policy — Debug Logs Catcher
 
-**Last updated:** 2026-07-02
+**Last updated:** 2026-07-16
 **Publisher:** Julien Andre
 **Contact:** julien.andre.devchrome@gmail.com
 
@@ -42,7 +42,8 @@ The extension also persists, in `chrome.storage.local`:
 
 - The list of *Auto-capture domains* you configured.
 - The two boolean settings *Clear buffer on page reload* and *Include all
-  headers in export*.
+  headers in export*, and the two expert options from the options page
+  (console serialization depth, max captured body size).
 
 Nothing else is stored.
 
@@ -79,6 +80,11 @@ By default, exports strip sensitive data before the file is produced:
   payloads are replaced with `Bearer:<redacted>`.
 - JSON fields named `Authorization`, `X-Application`, `Cookie`, or
   `Set-Cookie` are replaced with `<redacted>`.
+- Secret-bearing fields in request/response bodies, deep-serialized console
+  objects, and the decoded JWT payload are masked by key name: `password`,
+  `secret`, and `credential` fields become `<redacted>`, while API keys,
+  tokens, and session ids are partially masked (first and last characters
+  kept, middle removed) so they stay correlatable but unusable.
 
 You can disable this redaction via the *Include all headers in export*
 setting — only do this when you fully control the recipient of the export,

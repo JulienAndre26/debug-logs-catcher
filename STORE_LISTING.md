@@ -65,9 +65,11 @@ so the next submission has the latest text ready to copy.
 > • **Add current site** — one click on the popup adds the current tab's
 >   host to the Auto-capture list, asks Chrome for permission, and you are
 >   set up.
-> • **Header and token redaction by default** — Authorization, Cookie,
->   Set-Cookie, X-Application, X-Csrf-Token, X-Xsrf-Token, and `Bearer …`
->   tokens are stripped from exports. Disable in Settings if you control
+> • **Redaction by default** — sensitive headers (Authorization, Cookie,
+>   Set-Cookie, X-Application, X-Csrf-Token, X-Xsrf-Token) and `Bearer …`
+>   tokens are stripped from exports; secret-bearing fields in bodies, console
+>   objects and the decoded JWT are masked by key name (passwords fully, API
+>   keys / tokens / session ids partially). Disable in Settings if you control
 >   the recipient.
 > • **Gzipped JSON export** — click *Export* for a compact `.json.gz`,
 >   or Shift+click for raw `.json` when you need to read it directly.
@@ -119,10 +121,11 @@ so the next submission has the latest text ready to copy.
 
 ### `storage`
 
-> Used only to persist two pieces of user configuration in
-> `chrome.storage.local`: the list of Auto-capture domains, and two boolean
-> settings (*Clear buffer on page reload*, *Include all headers in
-> export*). No captured data is ever written to storage.
+> Used only to persist user configuration in `chrome.storage.local`: the list
+> of Auto-capture domains, two boolean settings (*Clear buffer on page reload*,
+> *Include all headers in export*), and two expert options from the options
+> page (console serialization depth, max captured body size). No captured data
+> is ever written to storage.
 
 ### `tabs`
 
