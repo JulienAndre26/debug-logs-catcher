@@ -42,27 +42,22 @@ so the next submission has the latest text ready to copy.
 >
 > What it captures while attached:
 >
-> • WebSocket frames sent and received, with payload and timing
->
+> • WebSocket frames sent and received, with payload and timing\
 > • Network requests and responses (URL, method, headers, request and
 >   response body, status, size). Bodies are captured for data content
 >   types up to a configurable size limit; page assets and binary
->   responses are skipped
->
+>   responses are skipped\
 > • Console output and uncaught exceptions. Call arguments are serialized
 >   via the Chrome DevTools Protocol to a configurable depth (default one
 >   level plus a preview of the next): primitive values verbatim, nested
 >   objects/arrays expanded, own enumerable properties only, no getters
->   invoked
->
+>   invoked\
 > • postMessage traffic delivered to the tab's windows (sender origin,
 >   sender/receiver relation, payload) — invisible in the Network panel,
 >   essential to debug an iframe integration. Recorded by a listener in a
->   DevTools isolated world: it only listens, and the page cannot see it
->
+>   DevTools isolated world: it only listens, and the page cannot see it\
 > • Cross-site iframes included: each one runs in its own process, and the
->   extension attaches to it within the same capture
->
+>   extension attaches to it within the same capture\
 > • Environment metadata: `/build.json` if served, plus the decoded payload
 >   of the first JWT bearer token seen (tenant, user, server context)
 >
@@ -72,30 +67,28 @@ so the next submission has the latest text ready to copy.
 >   extension attaches automatically the next time you visit them. The
 >   extension asks Chrome for permission once per domain, granted by you
 >   through Chrome's native prompt. No site is accessed without your
->   explicit consent.
->
+>   explicit consent.\
 > • **Add current site** — one click on the popup adds the current tab's
 >   host to the Auto-capture list, asks Chrome for permission, and you are
->   set up.
->
+>   set up.\
+> • **Pause and resume** — Stop works as a pause: Start resumes the capture
+>   in the same buffer, and every gap is recorded in the export with its
+>   reason. If Chrome itself ends the capture (e.g. when a password manager's
+>   menu appears in the page), the popup says why.\
 > • **Redaction by default** — sensitive headers (Authorization, Cookie,
 >   Set-Cookie, X-Application, X-Csrf-Token, X-Xsrf-Token) and `Bearer …`
 >   tokens are stripped from exports; secret-bearing fields in bodies, console
 >   objects, postMessage payloads and the decoded JWT are masked by key name
 >   (passwords fully, API keys / tokens / session ids partially), and a JWT
 >   found anywhere else in a string is partially masked too. Disable in
->   Settings if you control the recipient.
->
+>   Settings if you control the recipient.\
 > • **Gzipped JSON export** — click *Export* for a compact `.json.gz`,
->   or Shift+click for raw `.json` when you need to read it directly.
->
+>   or Shift+click for raw `.json` when you need to read it directly.\
 > • **Bounded buffers** — capped at 5 000 WS frames, 10 000 console entries,
 >   5 000 network requests and 5 000 postMessages so a long session does not
->   blow up memory.
->
+>   blow up memory.\
 > • **Per-tab badge** — shows when capture is running on tabs other than
->   the active one, so you do not forget the debugger is attached.
->
+>   the active one, so you do not forget the debugger is attached.\
 > • **Theme-aware UI** — the popup and the options page follow your system
 >   light or dark theme.
 >
@@ -107,10 +100,11 @@ so the next submission has the latest text ready to copy.
 (16 000 char limit; this is a starting draft.)
 
 Copy it from a **rendered** preview: the Store takes plain text, and the
-preview drops the `>` markers and the `**` / backticks. Each `•` item is its
-own paragraph on purpose — consecutive `•` lines render as one paragraph and
-reach the Store joined on a single line (the 1.1.0 listing has exactly that
-defect).
+preview drops the `>` markers and the `**` / backticks. Each `•` item but the
+last of its list ends with a backslash on purpose: a hard line break, so every
+item lands on its own line. Without it, consecutive `•` lines render as one
+paragraph and reach the Store joined on a single line (the 1.1.0 listing has
+exactly that defect).
 
 ## Category
 
