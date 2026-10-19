@@ -270,13 +270,16 @@ Before publishing a new version:
 1. Bump `manifest.json` → `version` (and `package.json` → `version` to match —
    `npm run package` names the ZIP from it).
 2. Add a `CHANGELOG.md` entry.
-3. `git tag vX.Y.Z && git push --tags`.
+3. `git tag -a vX.Y.Z -m "vX.Y.Z — <summary>" && git push origin main vX.Y.Z`.
+   Give GitHub Pages a minute to rebuild before submitting: the Store reviews
+   the privacy policy it serves.
 4. Produce the upload zip with `npm run package`.
-   (STORE_LISTING, the `docs/` Pages source, `screenshots/`, the `test/` suite,
-   and `package.json` are dev/internal-only and stay out; LICENSE, CHANGELOG,
-   and README are kept in the bundle. The privacy policy lives under `docs/`
-   and is shipped via the Pages URL, not inside the ZIP &mdash; Chrome rejects
-   any file starting with `_` so `_config.yml` must stay out.)
+   (STORE_LISTING, the `docs/` Pages source, `screenshots/`, the `test/` and
+   `e2e/` suites, and `package.json` are dev/internal-only and stay out;
+   LICENSE, CHANGELOG, and README are kept in the bundle. The privacy policy
+   lives under `docs/` and is shipped via the Pages URL, not inside the ZIP
+   &mdash; Chrome rejects any file starting with `_` so `_config.yml` must stay
+   out.)
 5. Upload via the
    [Chrome Web Store dashboard](https://chrome.google.com/webstore/devconsole/)
    and paste the texts from `STORE_LISTING.md`.
