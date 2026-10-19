@@ -16,7 +16,13 @@ import {
     parseMultipartFields,
     truncate,
     previewToPlain,
-    serializeDeep
+    serializeDeep,
+    redactJwts,
+    POST_MESSAGE_BINDING,
+    encodeCloned,
+    installPostMessageListener,
+    postMessageCaptureSource,
+    parsePostMessagePayload
 } from '../lib/capture.js';
 
 test('coerceMaxBodyKB clamps and defaults', () => {
@@ -211,4 +217,149 @@ test('serializeDeep: falls back to preview when getProperties throws', async () 
     const send = async () => { throw new Error('object released'); };
     const ro = { objectId: 'x', preview: { properties: [{ name: 'p', type: 'string', value: 'v' }] } };
     assert.deepEqual(await serializeDeep(send, ro, 1), { p: 'v' });
+});
+
+test('redactJwts masks a JWT anywhere in a string, by shape', () => {
+    const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhbGljZSJ9.c2lnbmF0dXJlMTIzNDU2';
+    assert.equal(redactJwts('https://pbx.example/photo/42?jwt=' + jwt + '&size=64'),
+        'https://pbx.example/photo/42?jwt=eyJ***DU2&size=64');
+    assert.equal(redactJwts('a.b.c and eyJnot-a-jwt'), 'a.b.c and eyJnot-a-jwt');
+    assert.equal(redactJwts(undefined), undefined);
+});
+
+test('encodeCloned keeps what JSON would drop or mangle', () => {
+    const out = encodeCloned({
+        activeMember: undefined,
+        list: [1, undefined],
+        nan: NaN,
+        inf: -Infinity,
+        big: 10n,
+        when: new Date(0),
+        bad: new Date('nope'),
+        re: /x/g,
+        map: new Map([['k', { v: undefined }]]),
+        set: new Set([1]),
+        err: new TypeError('boom'),
+        buf: new ArrayBuffer(4),
+        bytes: new Uint8Array(3),
+        blob: new Blob(['abc'], { type: 'text/plain' }),
+        boxed: new String('s')
+    });
+    assert.deepEqual(out, {
+        activeMember: '<undefined>',
+        list: [1, '<undefined>'],
+        nan: '<NaN>',
+        inf: '<-Infinity>',
+        big: '<10n>',
+        when: '<Date 1970-01-01T00:00:00.000Z>',
+        bad: '<Date Invalid>',
+        re: '<RegExp /x/g>',
+        map: { '<Map>': [['k', { v: '<undefined>' }]] },
+        set: { '<Set>': [1] },
+        err: '<TypeError: boom>',
+        buf: '<ArrayBuffer 4 bytes>',
+        bytes: '<Uint8Array 3 bytes>',
+        blob: '<Blob 3 bytes text/plain>',
+        boxed: 's'
+    });
+    // the point of it: the key survives a JSON round trip
+    const roundTrip = JSON.parse(JSON.stringify(encodeCloned({ activeMember: undefined })));
+    assert.deepEqual(roundTrip, { activeMember: '<undefined>' });
+});
+
+test('encodeCloned keeps an own "__proto__" key as data', () => {
+    assert.deepEqual(Object.keys(encodeCloned(JSON.parse('{"__proto__": {"a": 1}, "b": 2}'))), ['__proto__', 'b']);
+});
+
+test('encodeCloned marks cycles but expands a shared, acyclic reference twice', () => {
+    const shared = { x: 1 };
+    const cyclic = { shared, again: shared };
+    cyclic.self = cyclic;
+    assert.deepEqual(encodeCloned(cyclic), { shared: { x: 1 }, again: { x: 1 }, self: '<circular>' });
+});
+
+test('encodeCloned stops at the depth cap', () => {
+    const deep = Array.from({ length: 25 }).reduce((inner) => ({ d: inner }), 'bottom');
+    const atCap = Array.from({ length: 20 }).reduce((node) => node.d, encodeCloned(deep));
+    assert.equal(atCap, '<max-depth>');
+});
+
+function fakeWindow(frames = []) {
+    const listeners = [];
+    const win = {
+        location: { origin: 'https://app.example' },
+        document: { querySelectorAll: () => frames },
+        addEventListener: (type, fn, capture) => listeners.push({ type, fn, capture }),
+        listeners,
+        calls: []
+    };
+    win.parent = { name: 'crm' };
+    win.top = win.parent;
+    win.opener = null;
+    win[POST_MESSAGE_BINDING] = (payload) => win.calls.push(JSON.parse(payload));
+    return win;
+}
+
+const dispatch = (win, event) => win.listeners.forEach((l) => l.fn(event));
+
+test('installPostMessageListener listens once, in the capture phase', () => {
+    const win = fakeWindow();
+    installPostMessageListener(win, POST_MESSAGE_BINDING, encodeCloned);
+    installPostMessageListener(win, POST_MESSAGE_BINDING, encodeCloned);
+    assert.equal(win.listeners.length, 1);
+    assert.equal(win.listeners[0].type, 'message');
+    assert.equal(win.listeners[0].capture, true);
+});
+
+test('installPostMessageListener reports origin, source relation and the encoded data', () => {
+    const child = { name: 'child' };
+    const win = fakeWindow([
+        { contentWindow: {}, src: 'https://other.example/' },
+        { contentWindow: child, src: 'https://ads.example/f' }
+    ]);
+    installPostMessageListener(win, POST_MESSAGE_BINDING, encodeCloned);
+    const command = { uid: 'u1', type: 'ANSWER', x: undefined };
+    dispatch(win, { origin: 'https://crm.example', source: win.parent, data: command });
+    dispatch(win, { origin: 'https://ads.example', source: child, data: 'ping', ports: [{}] });
+    dispatch(win, { origin: 'https://app.example', source: win, data: 1 });
+    dispatch(win, { origin: '', source: null, data: 2 });
+    dispatch(win, { origin: 'https://x.example', source: { name: 'stranger' }, data: 3 });
+    const strip = ({ t, receiver, ...rest }) => rest;
+    assert.ok(win.calls.every((c) => typeof c.t === 'number' && c.receiver === 'https://app.example'));
+    assert.deepEqual(win.calls.map(strip), [
+        { origin: 'https://crm.example', source: 'parent', data: { uid: 'u1', type: 'ANSWER', x: '<undefined>' } },
+        { origin: 'https://ads.example', source: 'child', sourceUrl: 'https://ads.example/f', data: 'ping', ports: 1 },
+        { origin: 'https://app.example', source: 'self', data: 1 },
+        { origin: '', source: 'none', data: 2 },
+        { origin: 'https://x.example', source: 'other', data: 3 }
+    ]);
+});
+
+test('installPostMessageListener never throws into the page, and keeps listening', () => {
+    const win = fakeWindow();
+    installPostMessageListener(win, POST_MESSAGE_BINDING, encodeCloned);
+    win[POST_MESSAGE_BINDING] = () => { throw new RangeError('Invalid string length'); };
+    assert.doesNotThrow(() => dispatch(win, { origin: 'https://crm.example', source: win.parent, data: 1 }));
+    assert.equal(win.listeners.length, 1);
+});
+
+test('postMessageCaptureSource is self-contained once stringified', () => {
+    const win = fakeWindow();
+    new Function('window', postMessageCaptureSource())(win);
+    dispatch(win, { origin: 'https://crm.example', source: win.parent, data: { when: new Date(0), v: undefined } });
+    assert.deepEqual(win.calls[0].data, { when: '<Date 1970-01-01T00:00:00.000Z>', v: '<undefined>' });
+});
+
+test('parsePostMessagePayload truncates the data only, and rejects foreign payloads', () => {
+    const small = JSON.stringify({ t: 1, origin: 'o', data: { type: 'A' } });
+    assert.deepEqual(parsePostMessagePayload(small, 100), { t: 1, origin: 'o', data: { type: 'A' } });
+
+    const big = JSON.stringify({ t: 1, origin: 'o', data: { blob: 'x'.repeat(50) } });
+    const entry = parsePostMessagePayload(big, 20);
+    assert.equal(entry.origin, 'o');
+    assert.equal(entry.data, '{"blob":"xxxxxxxxxxx');
+    assert.equal(entry.dataTruncated, true);
+
+    assert.equal(parsePostMessagePayload('not json', 100), undefined);
+    assert.equal(parsePostMessagePayload('42', 100), undefined);
 });

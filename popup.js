@@ -1,4 +1,4 @@
-import { redactSensitiveInPlace } from './lib/capture.js';
+import { redactSensitiveInPlace, redactJwts } from './lib/capture.js';
 
 const SENSITIVE_HEADERS = new Set([
     'authorization',
@@ -109,6 +109,14 @@ function describeUnsupported(url) {
     return u.hostname;
 }
 
+// Why Chrome ended a capture (chrome.debugger.onDetach reason), and what to do about it.
+const DETACH_EXPLANATIONS = {
+    target_closed: 'Typically an iframe from another extension (e.g. a password manager menu) appeared in the page: ' +
+        'Chrome lets no extension debug a tab holding one.',
+    canceled_by_user: 'It was cancelled from Chrome\'s "started debugging this browser" banner.'
+};
+const RESUME_HINT = ' Start resumes the capture; the gap is recorded in the export.';
+
 let currentTabId;
 let refreshTimer;
 
@@ -143,10 +151,17 @@ async function refresh() {
     document.getElementById('recvCount').textContent = status.received;
     document.getElementById('consoleCount').textContent = status.console;
     document.getElementById('networkCount').textContent = status.network;
+    document.getElementById('postMessageCount').textContent = status.postMessages;
     document.getElementById('dot').className = 'dot ' + (status.attached ? 'on' : 'off');
     document.getElementById('toggle').textContent = status.attached ? 'Stop' : 'Start';
-    const total = status.sent + status.received + status.console + status.network;
+    const total = status.sent + status.received + status.console + status.network + status.postMessages;
     document.getElementById('export').disabled = total === 0;
+    const reason = status.detachReason;
+    document.getElementById('detachNotice').classList.toggle('hidden', !reason);
+    if (reason) {
+        document.getElementById('detachNoticeBody').textContent =
+            (DETACH_EXPLANATIONS[reason] || 'Reason: ' + reason + '.') + RESUME_HINT;
+    }
 }
 
 async function onToggle() {
@@ -187,7 +202,7 @@ function allowlistRequestHeaders(headers) {
 
 function redactString(s) {
     if (typeof s !== 'string') return s;
-    return s.replace(BEARER_RE, 'Bearer:<redacted>').replace(AUTH_FIELD_RE, '"$1":"<redacted>"');
+    return redactJwts(s.replace(BEARER_RE, 'Bearer:<redacted>').replace(AUTH_FIELD_RE, '"$1":"<redacted>"'));
 }
 
 function walkAndStripHeaders(node) {
@@ -226,10 +241,11 @@ function stripBody(s, isBase64) {
     try { return JSON.parse(redacted); } catch (e) { return redacted; }
 }
 
-function redactConsoleArg(arg) {
+// A captured JS value: a console argument or a postMessage payload.
+function redactValue(arg) {
     if (typeof arg === 'string') return redactString(arg);
     if (arg && typeof arg === 'object') {
-        // Deep-serialized console objects can carry tokens/headers; round-trip through stripPayload
+        // Deep-serialized objects can carry tokens/headers; round-trip through stripPayload
         // (JSON walk-and-strip headers + bearer/auth redaction) like any other payload.
         try { return JSON.parse(stripPayload(JSON.stringify(arg))); } catch (e) { return arg; }
     }
@@ -238,7 +254,11 @@ function redactConsoleArg(arg) {
 
 function redactConsoleEntry(entry) {
     if (!entry || !Array.isArray(entry.args)) return entry;
-    return { ...entry, args: entry.args.map(redactConsoleArg) };
+    return { ...entry, args: entry.args.map(redactValue) };
+}
+
+function redactPostMessage(entry) {
+    return { ...entry, sourceUrl: redactString(entry.sourceUrl), data: redactValue(entry.data) };
 }
 
 function stripData(data) {
@@ -254,7 +274,8 @@ function stripData(data) {
             responseHeaders: stripHeaders(req.responseHeaders),
             postData: stripPayload(req.postData),
             responseBody: stripBody(req.responseBody, req.responseBodyBase64)
-        }))
+        })),
+        postMessages: (data.postMessages || []).map(redactPostMessage)
     };
 }
 

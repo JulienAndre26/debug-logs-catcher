@@ -1,0 +1,7 @@
+{
+  "manifest_version": 3,
+  "name": "Foreign extension (E2E fixture)",
+  "version": "1.0",
+  "description": "Exposes a web-accessible page that a test inserts as an iframe, like a password manager's inline menu.",
+  "web_accessible_resources": [{ "resources": ["frame.html"], "matches": ["<all_urls>"] }]
+}

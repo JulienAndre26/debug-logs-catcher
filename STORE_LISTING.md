@@ -43,15 +43,26 @@ so the next submission has the latest text ready to copy.
 > What it captures while attached:
 >
 > • WebSocket frames sent and received, with payload and timing
+>
 > • Network requests and responses (URL, method, headers, request and
 >   response body, status, size). Bodies are captured for data content
 >   types up to a configurable size limit; page assets and binary
 >   responses are skipped
+>
 > • Console output and uncaught exceptions. Call arguments are serialized
 >   via the Chrome DevTools Protocol to a configurable depth (default one
 >   level plus a preview of the next): primitive values verbatim, nested
 >   objects/arrays expanded, own enumerable properties only, no getters
 >   invoked
+>
+> • postMessage traffic delivered to the tab's windows (sender origin,
+>   sender/receiver relation, payload) — invisible in the Network panel,
+>   essential to debug an iframe integration. Recorded by a listener in a
+>   DevTools isolated world: it only listens, and the page cannot see it
+>
+> • Cross-site iframes included: each one runs in its own process, and the
+>   extension attaches to it within the same capture
+>
 > • Environment metadata: `/build.json` if served, plus the decoded payload
 >   of the first JWT bearer token seen (tenant, user, server context)
 >
@@ -62,21 +73,29 @@ so the next submission has the latest text ready to copy.
 >   extension asks Chrome for permission once per domain, granted by you
 >   through Chrome's native prompt. No site is accessed without your
 >   explicit consent.
+>
 > • **Add current site** — one click on the popup adds the current tab's
 >   host to the Auto-capture list, asks Chrome for permission, and you are
 >   set up.
+>
 > • **Redaction by default** — sensitive headers (Authorization, Cookie,
 >   Set-Cookie, X-Application, X-Csrf-Token, X-Xsrf-Token) and `Bearer …`
 >   tokens are stripped from exports; secret-bearing fields in bodies, console
->   objects and the decoded JWT are masked by key name (passwords fully, API
->   keys / tokens / session ids partially). Disable in Settings if you control
->   the recipient.
+>   objects, postMessage payloads and the decoded JWT are masked by key name
+>   (passwords fully, API keys / tokens / session ids partially), and a JWT
+>   found anywhere else in a string is partially masked too. Disable in
+>   Settings if you control the recipient.
+>
 > • **Gzipped JSON export** — click *Export* for a compact `.json.gz`,
 >   or Shift+click for raw `.json` when you need to read it directly.
+>
 > • **Bounded buffers** — capped at 5 000 WS frames, 10 000 console entries,
->   and 5 000 network requests so a long session does not blow up memory.
+>   5 000 network requests and 5 000 postMessages so a long session does not
+>   blow up memory.
+>
 > • **Per-tab badge** — shows when capture is running on tabs other than
 >   the active one, so you do not forget the debugger is attached.
+>
 > • **Theme-aware UI** — the popup and the options page follow your system
 >   light or dark theme.
 >
@@ -86,6 +105,12 @@ so the next submission has the latest text ready to copy.
 > Source code and privacy policy: https://github.com/JulienAndre26/debug-logs-catcher.
 
 (16 000 char limit; this is a starting draft.)
+
+Copy it from a **rendered** preview: the Store takes plain text, and the
+preview drops the `>` markers and the `**` / backticks. Each `•` item is its
+own paragraph on purpose — consecutive `•` lines render as one paragraph and
+reach the Store joined on a single line (the 1.1.0 listing has exactly that
+defect).
 
 ## Category
 
@@ -99,18 +124,21 @@ so the next submission has the latest text ready to copy.
 
 ## Single purpose
 
-> Capture WebSocket, network, console, and environment data from a tab the
-> user explicitly attaches to, and let the user export it as a local file.
+> Capture WebSocket, network, console, postMessage, and environment data from
+> a tab the user explicitly attaches to, and let the user export it as a local
+> file.
 
 ## Permission justifications
 
 ### `debugger`
 
 > The extension's core function — capturing WebSocket frames, network
-> requests, console output, and exceptions on third-party tabs — is only
-> achievable via the Chrome DevTools Protocol exposed through this
-> permission. Standard `webRequest` does not surface WebSocket payloads,
-> console output, or runtime exceptions. Attachment is always explicit:
+> requests, console output, exceptions, and postMessage traffic on
+> third-party tabs, including their cross-site iframes — is only achievable
+> via the Chrome DevTools Protocol exposed through this permission. Standard
+> `webRequest` does not surface WebSocket payloads, console output, or
+> runtime exceptions; postMessage traffic is recorded by a listener placed in
+> a DevTools isolated world, which requires no host permission. Attachment is always explicit:
 > either the user clicks **Start** in the popup, or the navigation matches
 > a domain the user has explicitly added to the Auto-capture list (via the
 > settings drawer or the *Add current site* button), for which Chrome
@@ -177,7 +205,9 @@ so the next submission has the latest text ready to copy.
 > and does not include any module loader that fetches code dynamically.
 > The only remote interaction is a single `fetch('/build.json')` evaluated
 > in the inspected page's context, whose JSON response is stored in the
-> capture metadata — it is data, not code.
+> capture metadata — it is data, not code. The postMessage listener placed
+> in the inspected page is part of the bundled code (`lib/capture.js`), not
+> fetched.
 
 ## Data usage disclosures (developer dashboard form)
 
@@ -200,8 +230,9 @@ or use this data?*
   user has explicitly attached.
 - **User activity** — *No.* No analytics, no telemetry, no click tracking.
 - **Website content** — *Yes, for the user's own captures.* WebSocket
-  frames, network requests, and console output captured on the user's
-  explicitly-attached tabs are held in memory during the session.
+  frames, network requests, console output, and postMessage traffic captured
+  on the user's explicitly-attached tabs are held in memory during the
+  session.
 
 ### Required certifications
 
@@ -224,9 +255,9 @@ or use this data?*
 
 - [ ] Icon already shipped in manifest (16/32/48/128) — no separate upload.
 - [ ] **Screenshots** (1280×800 or 640×400, at least 1, recommended 3–5).
-      Plan: (1) popup idle, (2) popup mid-capture with counters, (3)
-      settings drawer open, (4) downloaded export file shown in a text
-      editor.
+      `npm run screenshots` regenerates `screenshots/01–03` (popup idle,
+      settings drawer open, mid-capture with counters) from the current
+      popup. Still to do: (4) downloaded export file shown in a text editor.
 - [ ] **Small promo tile** 440×280 (optional but recommended for
       discoverability).
 - [ ] **Privacy policy URL** live and publicly reachable before submission.

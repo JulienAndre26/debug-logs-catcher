@@ -1,12 +1,15 @@
 {
   "name": "debug-logs-catcher",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Internal Enreach tool: capture WebSocket, console, network, and environment metadata from a tab.",
   "scripts": {
-    "test": "node --test",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "node --test",
+    "test:e2e": "node --test --test-concurrency=1 e2e/capture.e2e.js e2e/limitations.e2e.js",
     "coverage": "node --test --experimental-test-coverage",
-    "package": "zip -r debug-logs-catcher-v$npm_package_version.zip . -x '.git/*' '.idea/*' '*.zip' '.gitignore' 'STORE_LISTING.md' 'docs/*' 'screenshots/*' 'icons/*.svg' 'test/*' 'package.json' 'node_modules/*'"
+    "screenshots": "node e2e/screenshots.js",
+    "package": "zip -r debug-logs-catcher-v$npm_package_version.zip . -x '.git/*' '.idea/*' '*.zip' '.gitignore' 'STORE_LISTING.md' 'docs/*' 'screenshots/*' 'icons/*.svg' 'test/*' 'e2e/*' 'package.json' 'node_modules/*'"
   }
 }

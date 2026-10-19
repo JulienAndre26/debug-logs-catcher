@@ -9,13 +9,30 @@ import {
     isMultipart,
     parseMultipartFields,
     truncate,
-    serializeDeep
+    serializeDeep,
+    POST_MESSAGE_WORLD,
+    POST_MESSAGE_BINDING,
+    postMessageCaptureSource,
+    parsePostMessagePayload
 } from './lib/capture.js';
 
 const PROTOCOL_VERSION = '1.3';
 const MAX_WS_FRAMES = 5000;
 const MAX_CONSOLE = 10000;
 const MAX_NETWORK = 5000;
+const MAX_POST_MESSAGES = 5000;
+
+const POST_MESSAGE_SOURCE = postMessageCaptureSource();
+
+// A cross-site iframe runs in its own renderer process, i.e. its own CDP target: the tab session never sees
+// its traffic. Auto-attach (flat sessions) hands each one over as a child session, set up like the tab's.
+// Paused on start, so nothing it does before the setup is missed.
+const IFRAME_AUTO_ATTACH = {
+    autoAttach: true,
+    waitForDebuggerOnStart: true,
+    flatten: true,
+    filter: [{ type: 'iframe' }]
+};
 
 const BUILD_INFO_PATH = '/build.json';
 
@@ -28,8 +45,8 @@ let clearOnReload = true;
 let maxBodyBytes = DEFAULT_MAX_BODY_KB * BYTES_PER_KO;
 let consoleDepth = DEFAULT_CONSOLE_DEPTH;
 
-// Bind a tab-scoped CDP command sender for the chrome-free serializeDeep helper.
-const sendCommandFor = (tabId) => (method, params) => chrome.debugger.sendCommand({ tabId }, method, params);
+// Bind a session-scoped CDP command sender for the chrome-free serializeDeep helper.
+const sendCommandFor = (debuggee) => (method, params) => chrome.debugger.sendCommand(debuggee, method, params);
 
 chrome.storage.local.get(['autoDomains', 'clearOnReload', 'maxBodyKB', 'consoleDepth'], (data) => {
     autoDomains = Array.isArray(data.autoDomains) ? data.autoDomains : [];
@@ -87,10 +104,31 @@ async function fetchBuildInfo(tabId, path) {
 function getCapture(tabId) {
     let cap = captures.get(tabId);
     if (!cap) {
-        cap = { sent: [], received: [], console: [], network: new Map(), attached: false, startedAt: 0 };
+        cap = {
+            sent: [], received: [], console: [], network: new Map(), postMessages: [], interruptions: [],
+            frames: new Map(), attached: false, startedAt: 0, consoleFloor: 0
+        };
         captures.set(tabId, cap);
     }
     return cap;
+}
+
+// A Start after an interruption resumes the same buffers: each interruption is exported, so a gap in the capture
+// reads as one. reason: 'stopped' (Stop button), or Chrome's detach reason when Chrome ended the capture.
+function openInterruption(cap, reason) {
+    cap.interruptions.push({ from: Date.now(), reason });
+}
+
+function closeInterruption(cap) {
+    const last = cap.interruptions[cap.interruptions.length - 1];
+    if (last && last.to === undefined) last.to = Date.now();
+}
+
+// Every Start (Runtime.enable) makes Chrome replay the page's console history. A message older than the floor was
+// already captured before a Stop, or dropped by a Clear: its replay is skipped instead of piling up a duplicate.
+// The first Start has no floor, so it still collects what the page logged before the capture began.
+function raiseConsoleFloor(cap) {
+    cap.consoleFloor = Date.now();
 }
 
 const DEBUGGABLE_SCHEMES = new Set(['http:', 'https:']);
@@ -144,21 +182,69 @@ async function updateBadge() {
     if (text) chrome.action.setBadgeBackgroundColor({ color: '#22c55e' });
 }
 
+// Same setup for the tab session and every iframe child session.
+async function enableSession(debuggee) {
+    await chrome.debugger.sendCommand(debuggee, 'Network.enable');
+    await chrome.debugger.sendCommand(debuggee, 'Runtime.enable');
+    // without Page.enable, addScriptToEvaluateOnNewDocument never evaluates the script
+    await chrome.debugger.sendCommand(debuggee, 'Page.enable');
+    await chrome.debugger.sendCommand(debuggee, 'Runtime.addBinding', {
+        name: POST_MESSAGE_BINDING,
+        executionContextName: POST_MESSAGE_WORLD
+    });
+    await chrome.debugger.sendCommand(debuggee, 'Page.addScriptToEvaluateOnNewDocument', {
+        source: POST_MESSAGE_SOURCE,
+        worldName: POST_MESSAGE_WORLD,
+        runImmediately: true
+    });
+    await chrome.debugger.sendCommand(debuggee, 'Target.setAutoAttach', IFRAME_AUTO_ATTACH);
+}
+
+async function enableChildSession(tabId, sessionId) {
+    const child = { tabId, sessionId };
+    try {
+        await enableSession(child);
+    } catch (e) {
+        // best-effort: the frame is left uncaptured, never frozen
+    } finally {
+        chrome.debugger.sendCommand(child, 'Runtime.runIfWaitingForDebugger').catch(() => {});
+    }
+}
+
+// Entries coming from an iframe child session are tagged with that frame's origin.
+function frameOf(cap, source) {
+    if (!source.sessionId) return undefined;
+    const frame = cap.frames.get(source.sessionId);
+    return frame ? frame.origin : undefined;
+}
+
+function originOf(url) {
+    try { return new URL(url).origin; } catch (e) { return undefined; }
+}
+
+// A requestId is minted by its own target: scope a child session's ones by its sessionId.
+function networkKey(source, requestId) {
+    return source.sessionId ? source.sessionId + '/' + requestId : requestId;
+}
+
 async function attachToTab(tabId) {
     const cap = getCapture(tabId);
     if (cap.attached) return { ok: true, alreadyAttached: true };
     try {
         await chrome.debugger.attach({ tabId }, PROTOCOL_VERSION);
         cap.attached = true;
-        cap.startedAt = Date.now();
-        await chrome.debugger.sendCommand({ tabId }, 'Network.enable');
-        await chrome.debugger.sendCommand({ tabId }, 'Runtime.enable');
+        if (!cap.startedAt) cap.startedAt = Date.now();
+        await enableSession({ tabId });
+        cap.detachReason = undefined;
+        closeInterruption(cap);
         updateBadge();
         fetchBuildInfo(tabId, BUILD_INFO_PATH).then((info) => {
             if (cap.attached) cap.buildInfo = info;
         });
         return { ok: true };
     } catch (e) {
+        // a setup step failed after the attach: do not leave a debugger attached that captures nothing
+        if (cap.attached) chrome.debugger.detach({ tabId }).catch(() => {});
         cap.attached = false;
         updateBadge();
         return { ok: false, error: String(e && e.message || e) };
@@ -174,6 +260,9 @@ async function detachFromTab(tabId) {
         // best-effort; debugger may already be gone
     }
     cap.attached = false;
+    cap.frames.clear();
+    openInterruption(cap, 'stopped');
+    raiseConsoleFloor(cap);
     updateBadge();
     return { ok: true };
 }
@@ -185,18 +274,24 @@ function clearCapture(tabId) {
     cap.received = [];
     cap.console = [];
     cap.network = new Map();
+    cap.postMessages = [];
+    cap.interruptions = [];
+    cap.startedAt = cap.attached ? Date.now() : 0;
+    raiseConsoleFloor(cap);
 }
 
 function snapshotStatus(tabId) {
     const cap = captures.get(tabId);
-    if (!cap) return { attached: false, sent: 0, received: 0, console: 0, network: 0 };
+    if (!cap) return { attached: false, sent: 0, received: 0, console: 0, network: 0, postMessages: 0 };
     return {
         attached: cap.attached,
         startedAt: cap.startedAt,
         sent: cap.sent.length,
         received: cap.received.length,
         console: cap.console.length,
-        network: cap.network.size
+        network: cap.network.size,
+        postMessages: cap.postMessages.length,
+        detachReason: cap.detachReason
     };
 }
 
@@ -205,16 +300,18 @@ function exportCapture(tabId) {
     if (!cap) return undefined;
     return {
         meta: {
-            formatVersion: 2,
+            formatVersion: 3,
             tabId,
             exportedAt: Date.now(),
             startedAt: cap.startedAt,
+            interruptions: cap.interruptions,
             buildInfo: cap.buildInfo === undefined ? BUILD_INFO_NOT_FOUND : cap.buildInfo
         },
         wsSent: cap.sent,
         wsReceived: cap.received,
         console: cap.console,
-        network: Array.from(cap.network.values())
+        network: Array.from(cap.network.values()),
+        postMessages: cap.postMessages
     };
 }
 
@@ -234,7 +331,7 @@ function serializeRemoteObject(arg) {
 
 // Best-effort: fetch the response body via CDP once the request finished, before the buffer is evicted.
 // Non-text bodies are skipped, oversized bodies truncated (not dropped). Fire-and-forget; mutates req.
-async function captureResponseBody(tabId, requestId, req) {
+async function captureResponseBody(debuggee, requestId, req) {
     if (req.type !== 'http') return;
     if (!isCapturableResourceType(req.resourceType)) {
         req.responseBodyOmitted = 'resource-type';
@@ -245,7 +342,7 @@ async function captureResponseBody(tabId, requestId, req) {
         return;
     }
     try {
-        const res = await chrome.debugger.sendCommand({ tabId }, 'Network.getResponseBody', { requestId });
+        const res = await chrome.debugger.sendCommand(debuggee, 'Network.getResponseBody', { requestId });
         if (!res || typeof res.body !== 'string') return;
         if (res.base64Encoded) req.responseBodyBase64 = true;
         const t = truncate(res.body, maxBodyBytes);
@@ -259,7 +356,7 @@ async function captureResponseBody(tabId, requestId, req) {
 // Full request body: requestWillBeSent inlines postData only for small bodies; fetch the rest explicitly.
 // multipart/form-data is parsed down to its text fields (file parts dropped) so form posts are captured
 // without their binary uploads; other non-text request bodies are skipped.
-async function captureRequestBody(tabId, requestId, req) {
+async function captureRequestBody(debuggee, requestId, req) {
     if (req.type !== 'http') return;
     if (!req.hasPostData || req.postData) return;
     if (!isCapturableResourceType(req.resourceType)) {
@@ -273,7 +370,7 @@ async function captureRequestBody(tabId, requestId, req) {
         return;
     }
     try {
-        const res = await chrome.debugger.sendCommand({ tabId }, 'Network.getRequestPostData', { requestId });
+        const res = await chrome.debugger.sendCommand(debuggee, 'Network.getRequestPostData', { requestId });
         if (!res || typeof res.postData !== 'string') return;
         if (multipart) {
             req.postDataFields = parseMultipartFields(res.postData, contentType);
@@ -288,10 +385,10 @@ async function captureRequestBody(tabId, requestId, req) {
 }
 
 // Enrich already-pushed console args in place: replace object args with a deep-serialized plain value.
-function enrichConsoleArgs(tabId, remoteArgs, entry) {
+function enrichConsoleArgs(debuggee, remoteArgs, entry) {
     (remoteArgs || []).forEach((ro, i) => {
         if (!ro || ro.objectId === undefined) return;
-        serializeDeep(sendCommandFor(tabId), ro, consoleDepth)
+        serializeDeep(sendCommandFor(debuggee), ro, consoleDepth)
             .then((plain) => { if (plain !== undefined) entry.args[i] = plain; })
             .catch(() => { /* keep the shallow preview */ });
     });
@@ -304,10 +401,36 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
     if (!cap || !cap.attached) return;
 
     switch (method) {
+        case 'Target.attachedToTarget': {
+            // the URL is still empty while the frame waits for the debugger: targetInfoChanged fills it in
+            cap.frames.set(params.sessionId, {
+                targetId: params.targetInfo.targetId,
+                origin: originOf(params.targetInfo.url)
+            });
+            enableChildSession(tabId, params.sessionId);
+            break;
+        }
+        case 'Target.targetInfoChanged': {
+            cap.frames.forEach((frame) => {
+                if (frame.targetId === params.targetInfo.targetId) frame.origin = originOf(params.targetInfo.url);
+            });
+            break;
+        }
+        case 'Target.detachedFromTarget': {
+            cap.frames.delete(params.sessionId);
+            break;
+        }
+        case 'Runtime.bindingCalled': {
+            if (params.name !== POST_MESSAGE_BINDING) break;
+            const entry = parsePostMessagePayload(params.payload, maxBodyBytes);
+            if (entry) pushBounded(cap.postMessages, entry, MAX_POST_MESSAGES);
+            break;
+        }
         case 'Network.webSocketCreated': {
-            cap.network.set('ws:' + params.requestId, {
+            cap.network.set('ws:' + networkKey(source, params.requestId), {
                 type: 'ws',
                 requestId: params.requestId,
+                frame: frameOf(cap, source),
                 url: params.url,
                 t: Date.now()
             });
@@ -317,6 +440,7 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
             pushBounded(cap.sent, {
                 t: Date.now(),
                 requestId: params.requestId,
+                frame: frameOf(cap, source),
                 opcode: params.response && params.response.opcode,
                 payload: params.response && params.response.payloadData
             }, MAX_WS_FRAMES);
@@ -326,20 +450,22 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
             pushBounded(cap.received, {
                 t: Date.now(),
                 requestId: params.requestId,
+                frame: frameOf(cap, source),
                 opcode: params.response && params.response.opcode,
                 payload: params.response && params.response.payloadData
             }, MAX_WS_FRAMES);
             break;
         }
         case 'Network.webSocketClosed': {
-            const entry = cap.network.get('ws:' + params.requestId);
+            const entry = cap.network.get('ws:' + networkKey(source, params.requestId));
             if (entry) entry.closedAt = Date.now();
             break;
         }
         case 'Network.requestWillBeSent': {
-            cap.network.set(params.requestId, {
+            cap.network.set(networkKey(source, params.requestId), {
                 type: 'http',
                 requestId: params.requestId,
+                frame: frameOf(cap, source),
                 url: params.request.url,
                 method: params.request.method,
                 headers: params.request.headers,
@@ -354,7 +480,7 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
             break;
         }
         case 'Network.responseReceived': {
-            const req = cap.network.get(params.requestId);
+            const req = cap.network.get(networkKey(source, params.requestId));
             if (req) {
                 req.responseStatus = params.response.status;
                 req.responseStatusText = params.response.statusText;
@@ -366,17 +492,17 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
             break;
         }
         case 'Network.loadingFinished': {
-            const req = cap.network.get(params.requestId);
+            const req = cap.network.get(networkKey(source, params.requestId));
             if (req) {
                 req.encodedDataLength = params.encodedDataLength;
                 req.finishedAt = Date.now();
-                captureResponseBody(tabId, params.requestId, req);
-                captureRequestBody(tabId, params.requestId, req);
+                captureResponseBody(source, params.requestId, req);
+                captureRequestBody(source, params.requestId, req);
             }
             break;
         }
         case 'Network.loadingFailed': {
-            const req = cap.network.get(params.requestId);
+            const req = cap.network.get(networkKey(source, params.requestId));
             if (req) {
                 req.failed = true;
                 req.errorText = params.errorText;
@@ -386,19 +512,24 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
             break;
         }
         case 'Runtime.consoleAPICalled': {
+            if (params.timestamp < cap.consoleFloor) break;
             const entry = {
-                t: Date.now(),
+                // when the page logged it (epoch ms): a replayed message arrives long after
+                t: params.timestamp,
+                frame: frameOf(cap, source),
                 level: params.type,
                 args: (params.args || []).map(serializeRemoteObject)
             };
             pushBounded(cap.console, entry, MAX_CONSOLE);
-            if (consoleDepth >= 1) enrichConsoleArgs(tabId, params.args, entry);
+            if (consoleDepth >= 1) enrichConsoleArgs(source, params.args, entry);
             break;
         }
         case 'Runtime.exceptionThrown': {
+            if (params.timestamp < cap.consoleFloor) break;
             const ed = params.exceptionDetails || {};
             pushBounded(cap.console, {
-                t: Date.now(),
+                t: params.timestamp,
+                frame: frameOf(cap, source),
                 level: 'exception',
                 text: ed.text,
                 exception: ed.exception ? serializeRemoteObject(ed.exception) : undefined,
@@ -413,9 +544,12 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
 
 chrome.debugger.onDetach.addListener((source, reason) => {
     const cap = source.tabId !== undefined && captures.get(source.tabId);
-    if (cap) {
+    if (cap && cap.attached) {
         cap.attached = false;
         cap.detachReason = reason;
+        cap.frames.clear();
+        openInterruption(cap, reason);
+        raiseConsoleFloor(cap);
     }
     updateBadge();
 });

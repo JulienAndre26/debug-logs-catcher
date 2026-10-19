@@ -4,6 +4,65 @@ All notable changes to this extension are documented here. Format roughly
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions
 follow [SemVer](https://semver.org/).
 
+## [1.2.0] — 2026-10-19
+
+### Added
+
+- **postMessage capture** — every message delivered to a window of the tab (top
+  page and iframes) is recorded in a new `postMessages` export section: receiving
+  window origin, sender `origin`, the sender's relation to the receiver
+  (`parent` / `child` with the iframe URL / `self` / `opener` / `top` / `other`),
+  and the payload. `window.postMessage` is no network traffic, so nothing showed
+  it before (not even DevTools' Network panel) — e.g. the traffic of a CRM
+  iframe integration. The listener runs in a DevTools isolated world: it only
+  listens, patches nothing, and stays invisible to the page's own scripts.
+- The payload keeps what JSON would lose: a property set to `undefined` is
+  exported as `"<undefined>"` instead of disappearing, and `NaN`, `Infinity`,
+  dates, `Map`, `Set`, binary data and cycles get explicit markers.
+- **Cross-site iframes are now captured** (network, WebSocket, console,
+  postMessage). Each one runs in its own process, which the tab-level session
+  never saw: an app embedded cross-site (e.g. in a CRM page) was missing from
+  the capture altogether. Entries coming from such an iframe carry a `frame`
+  field with its origin.
+- Popup counter for postMessage.
+- **Stop works as a pause, and every gap is recorded**: a Start on the same tab
+  resumes the capture in the same buffer, and `meta.interruptions` lists each
+  period it was not running, with its reason (`stopped`, or the reason Chrome
+  gave). When Chrome itself ends the capture — typically an iframe from
+  another extension appearing in the page — the popup says why instead of
+  silently showing *Idle*.
+- End-to-end suite (`npm run test:e2e`): the extension itself, loaded in a
+  headless Chrome against local pages (a CRM-like page embedding a cross-site
+  iframe), down to the export produced by the real popup. Also pins the Chrome
+  limitation on other extensions' iframes. `npm test` now runs it after the
+  unit suite, which moved to `npm run test:unit`.
+- `npm run screenshots` regenerates the Store screenshots from the real popup
+  (refreshed for this release: they now show the postMessage counter).
+
+### Changed
+
+- Requires Chrome 125 or later (`minimum_chrome_version`): the cross-site
+  iframe capture relies on `chrome.debugger` child sessions, available since.
+- Export `meta.formatVersion` is now `3` (new `postMessages` section, `frame`
+  field, `meta.interruptions`).
+- `meta.startedAt` is the start of the capture: it used to be reset by every
+  Start, so a resumed capture looked like it had begun at the resume.
+- A console or exception entry's `t` is now when the page logged it, not when
+  the capture received it — the console history Chrome hands over on Start
+  used to be stamped with the Start time.
+
+### Fixed
+
+- A Stop then Start no longer duplicates the console: Chrome replays the page's
+  console history on every attach, and each replay was appended again. Messages
+  already captured, or cleared, are now skipped; those logged during the pause
+  still come in, with their own time.
+- Redaction now also masks a JWT found anywhere in a string (e.g. in a photo
+  URL's query string), partially like any token — before, only `Bearer …`
+  tokens and token-named fields were caught.
+- A Start whose setup fails after the debugger attached now detaches it, instead
+  of leaving the debugger banner up on a capture that records nothing.
+
 ## [1.1.0] — 2026-07-16
 
 ### Added

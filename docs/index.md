@@ -1,8 +1,8 @@
 # Debug Logs Catcher
 
 A Chrome extension that attaches the DevTools debugger to a tab on demand
-and captures WebSocket frames, console output, network requests, and
-environment metadata. Everything stays local &mdash; exports are produced
+and captures WebSocket frames, console output, network requests,
+`postMessage` traffic, and environment metadata. Everything stays local &mdash; exports are produced
 as gzipped JSON files you download yourself.
 
 Built primarily to make it easy to reproduce and file bugs against Enreach

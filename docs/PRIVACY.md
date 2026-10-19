@@ -1,6 +1,6 @@
 # Privacy Policy — Debug Logs Catcher
 
-**Last updated:** 2026-07-16
+**Last updated:** 2026-10-19
 **Publisher:** Julien Andre
 **Contact:** julien.andre.devchrome@gmail.com
 
@@ -31,6 +31,12 @@ debugger to the current tab and records, in memory only:
   Chrome DevTools Protocol to a configurable depth (default one level, plus a
   free preview of the next). Serialization reads own enumerable properties only
   and never invokes getters, so it has no side effect on the page.
+- **postMessage traffic** — messages delivered to the windows of the tab
+  through `window.postMessage` (receiving window origin, sender origin, the
+  sender's relation to the receiver, and the message payload).
+- The above includes the **cross-site iframes** of the tab, which run in
+  separate processes: the extension attaches to each of them as part of the
+  same capture.
 - **Environment metadata** decoded from the page, when available:
   - The content of `/build.json` if served by the site (branch, build number,
     version, server identity).
@@ -53,18 +59,22 @@ Nothing else is stored.
 - It does **not** upload, sync, or transmit captured data anywhere.
 - It does **not** include analytics, telemetry, crash reporting, or
   remote configuration.
-- It does **not** modify any page's DOM, scripts, or global state. The only
-  code it ever executes in the inspected page's context is a transient
-  `fetch('/build.json')` expression evaluated through the DevTools Protocol
-  to retrieve the build metadata documented above; it leaves no DOM nodes,
-  no global variables, and no persistent listeners behind.
+- It does **not** modify any page's DOM, scripts, or global state. It
+  executes exactly two things in an inspected page, both through the DevTools
+  Protocol: a transient `fetch('/build.json')` expression to retrieve the
+  build metadata documented above, and a `message` event listener that
+  records postMessage traffic. That listener runs in a DevTools *isolated
+  world* — the mechanism behind extension content scripts — so the page's own
+  scripts cannot see it, and it adds no DOM node and no page global. It only
+  listens; nothing is patched or intercepted. It stays in the page until the
+  next reload or navigation, recording nothing once the capture is stopped.
 - It does **not** read any page outside of the tabs you explicitly start
   capturing on (via the Start button, or via an Auto-capture domain you have
   added to the list and granted Chrome permission for). It only attaches to
   `http://` and `https://` tabs; Chrome protects its own pages (`chrome://`,
   `chrome-extension://`, the Chrome Web Store) from debugging.
 - It does **not** persist captured frames, console output, network requests,
-  or environment metadata across browser sessions — they live only in memory
+  postMessage traffic, or environment metadata across browser sessions — they live only in memory
   while the service worker is alive, and are discarded when the tab is
   closed or when you click **Clear**.
 
@@ -81,10 +91,13 @@ By default, exports strip sensitive data before the file is produced:
 - JSON fields named `Authorization`, `X-Application`, `Cookie`, or
   `Set-Cookie` are replaced with `<redacted>`.
 - Secret-bearing fields in request/response bodies, deep-serialized console
-  objects, and the decoded JWT payload are masked by key name: `password`,
-  `secret`, and `credential` fields become `<redacted>`, while API keys,
-  tokens, and session ids are partially masked (first and last characters
-  kept, middle removed) so they stay correlatable but unusable.
+  objects, postMessage payloads, and the decoded JWT payload are masked by
+  key name: `password`, `secret`, and `credential` fields become
+  `<redacted>`, while API keys, tokens, and session ids are partially masked
+  (first and last characters kept, middle removed) so they stay correlatable
+  but unusable.
+- A JWT found anywhere else in a captured string (for instance in a URL's
+  query string) is partially masked the same way.
 
 You can disable this redaction via the *Include all headers in export*
 setting — only do this when you fully control the recipient of the export,
@@ -96,8 +109,9 @@ the captured session.
 The extension declares the following Chrome permissions, used strictly for
 the purposes above:
 
-- **`debugger`** — to attach the Chrome DevTools Protocol to a tab and
-  receive WebSocket, console, and network events. Activation is always
+- **`debugger`** — to attach the Chrome DevTools Protocol to a tab (and to
+  its cross-site iframes) and receive WebSocket, console, network, and
+  postMessage events. Activation is always
   explicit (Start button) or via the user-authorized Auto-capture domain
   list. Chrome shows its native *"…started debugging this browser"*
   banner at the top of the window whenever this permission is in use.
